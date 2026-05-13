@@ -1,0 +1,27 @@
+title = "ModelMeter gitleaks configuration"
+
+[extend]
+# Use the default gitleaks ruleset as the base.
+useDefault = true
+
+[allowlist]
+description = "Paths and patterns that are safe to ignore"
+
+paths = [
+    # Build artefacts and vendored source — never contain real secrets
+    '''target/''',
+    '''node_modules/''',
+    # Lock files contain hashes and checksums that can look like keys
+    '''Cargo\.lock''',
+    '''package-lock\.json''',
+]
+
+regexes = [
+    # Test fixtures in Rust files use clearly fake key-shaped strings
+    '''sk-abc123''',
+    '''sk-ant-admin-xyz''',
+    '''sk-proj-abcdefghijklmnopqrstuvwxyz1234''',
+    '''sk-admin-supersecretkeyvalue''',
+    '''sk-ant-admin-supersecretkey1234567890''',
+    '''test-secret-value-12345''',
+]

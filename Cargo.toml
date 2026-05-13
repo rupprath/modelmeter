@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "src-tauri",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+authors = ["Rob Rupprath"]
+license = "MIT"
+
+[workspace.dependencies]
+# Async
+tokio = { version = "1", features = ["full"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "rustls-tls-webpki-roots"], default-features = false }
+
+# Secret zeroing
+zeroize = { version = "1", features = ["derive"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Database: bundled SQLCipher; Windows uses pre-built OpenSSL libs in deps/, other platforms vendor OpenSSL
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher"] }
+
+# OS CSPRNG used for DB encryption key generation
+getrandom = "0.2"
+
+# Secret storage
+keyring = { version = "3", features = ["windows-native"] }
+
+# Config
+toml = "0.8"
+
+# OS directories
+dirs = "6"
+
+# DateTime (ISO 8601 parsing for Anthropic timestamps, month boundaries)
+chrono = { version = "0.4", features = ["serde"] }
+
+# Testing
+wiremock = "0.6"

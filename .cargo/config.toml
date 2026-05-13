@@ -1,0 +1,12 @@
+# Pre-built static OpenSSL for Windows x64 MSVC — eliminates the Perl build-time dependency.
+#
+# On Windows, openssl-sys reads OPENSSL_DIR to find headers and .lib files instead of
+# compiling OpenSSL from source.  With relative=true, the path is resolved relative to the
+# workspace root (the directory that contains this .cargo/ folder), so "deps/..." is correct.
+#
+# On macOS/Linux, rusqlite is built with the bundled-sqlcipher-vendored-openssl feature
+# (see crates/core/Cargo.toml), so openssl-sys compiles OpenSSL from source and ignores
+# OPENSSL_DIR entirely — these env vars have no effect there.
+[env]
+OPENSSL_DIR    = { value = "deps/openssl-windows-x64", relative = true }
+OPENSSL_STATIC = "1"

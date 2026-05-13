@@ -1,0 +1,123 @@
+import { useRef, useState } from "react";
+
+interface HoverState {
+  i: number;
+  x: number;
+  value: number;
+}
+
+interface Props {
+  data: number[];
+  color?: string;
+  height?: number;
+  padTop?: number;
+}
+
+export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10 }: Props) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
+
+  const WIDTH = 600;
+  const padRight = 16;
+  const padBottom = 12;
+  const innerH = height - padTop - padBottom;
+  const n = data.length;
+  const max = Math.max(...data, 1);
+  const gap = 2;
+  const bw = (WIDTH - gap * (n - 1)) / n;
+
+  const ticks = [0, Math.floor(n / 3), Math.floor((2 * n) / 3), n - 1];
+  const tickLabels = ticks.map((i) => {
+    const daysAgo = n - 1 - i;
+    return daysAgo === 0 ? "today" : `${daysAgo}d`;
+  });
+  const gridYs = [0.33, 0.66].map((f) => padTop + innerH * f);
+
+  function handleMove(e: React.MouseEvent<SVGSVGElement>) {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const xPx = e.clientX - rect.left;
+    const xViewbox = (xPx / rect.width) * WIDTH;
+    let idx = Math.floor(xViewbox / (bw + gap));
+    if (idx < 0) idx = 0;
+    if (idx > n - 1) idx = n - 1;
+    const cxView = idx * (bw + gap) + bw / 2;
+    const cxPx = (cxView / WIDTH) * rect.width;
+    setHover({ i: idx, x: cxPx, value: data[idx] });
+  }
+
+  const daysAgoLabel = (i: number) => {
+    const d = n - 1 - i;
+    return d === 0 ? "today" : `${d}d ago`;
+  };
+
+  return (
+    <div className="sv-chart-wrap" onMouseLeave={() => setHover(null)}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${WIDTH + padRight} ${height}`}
+        width="100%"
+        height={height}
+        preserveAspectRatio="none"
+        style={{ display: "block" }}
+        onMouseMove={handleMove}
+      >
+        {gridYs.map((y, i) => (
+          <line
+            key={i}
+            x1={0}
+            x2={WIDTH + padRight}
+            y1={y}
+            y2={y}
+            stroke="var(--mm-divider)"
+            strokeDasharray="2 3"
+          />
+        ))}
+
+        {data.map((v, i) => {
+          const h = (v / max) * innerH;
+          const x = i * (bw + gap);
+          const y = padTop + innerH - h;
+          const isLast = i === n - 1;
+          const isHover = hover?.i === i;
+          return (
+            <rect
+              key={i}
+              x={x.toFixed(2)}
+              y={y.toFixed(2)}
+              width={Math.max(bw, 1).toFixed(2)}
+              height={Math.max(h, 1).toFixed(2)}
+              fill={color}
+              opacity={isHover || isLast ? 1 : 0.78}
+              rx={Math.min(1.5, bw / 2)}
+            />
+          );
+        })}
+
+        {ticks.map((t, i) => (
+          <text
+            key={i}
+            x={t * (bw + gap) + bw / 2}
+            y={height - 2}
+            textAnchor="middle"
+            fontSize="10"
+            fill="var(--mm-text-4)"
+            style={{ fontFamily: "var(--mm-font-text)" }}
+          >
+            {tickLabels[i]}
+          </text>
+        ))}
+      </svg>
+
+      {hover && (
+        <div
+          className="sv-tooltip"
+          style={{ left: hover.x, top: padTop + 2 }}
+        >
+          {daysAgoLabel(hover.i)} · ${hover.value.toFixed(2)}
+        </div>
+      )}
+    </div>
+  );
+}

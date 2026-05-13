@@ -1,0 +1,48 @@
+{
+  "name": "modelmeter",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "test": "vitest run",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-shell": "^2",
+    "lucide-react": "^1.14.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-grid-layout": "^2.2.3",
+    "react-router-dom": "^7.14.2",
+    "recharts": "^3.8.1",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/react-grid-layout": "^1.3.6",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^7",
+    "@typescript-eslint/parser": "^7",
+    "@vitejs/plugin-react": "^4",
+    "eslint": "^8",
+    "eslint-plugin-react-hooks": "^4",
+    "eslint-plugin-react-refresh": "^0.4",
+    "jsdom": "^29.1.1",
+    "prettier": "^3",
+    "typescript": "^5",
+    "vite": "^5",
+    "vitest": "^4.1.5"
+  }
+}

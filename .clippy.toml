@@ -1,0 +1,3 @@
+# Clippy configuration — lints are set to errors via -D warnings in CI.
+# Workspace-level allow/deny overrides go here rather than in source files.
+msrv = "1.80.0"

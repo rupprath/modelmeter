@@ -1,0 +1,9 @@
+node_modules/
+dist/
+target/
+src-tauri/gen/
+app-icon.png
+*.log
+.claude/
+tmp/
+deps/

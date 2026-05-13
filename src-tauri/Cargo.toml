@@ -1,0 +1,37 @@
+[package]
+name = "modelmeter"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+# Tauri requires the binary name to match
+default-run = "modelmeter"
+
+[lib]
+name = "modelmeter_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+modelmeter-core = { path = "../crates/core" }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-build = { version = "2", features = [] }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+zeroize.workspace = true
+dirs.workspace = true
+reqwest.workspace = true
+chrono.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+opt-level = "s"  # Optimise for binary size
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"

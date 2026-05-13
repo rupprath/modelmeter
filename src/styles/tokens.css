@@ -1,0 +1,628 @@
+/* ModelMeter — design tokens. Ported from docs/design/styles.css. */
+:root {
+  --mm-font: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mm-font-text: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --mm-font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Surfaces */
+  --mm-bg: #f3f3f3;
+  --mm-chrome: #fbfbfb;
+  --mm-surface: #ffffff;
+  --mm-surface-2: #fafafa;
+  --mm-surface-hover: #f5f5f5;
+
+  /* Borders */
+  --mm-border: rgba(0, 0, 0, 0.08);
+  --mm-border-strong: rgba(0, 0, 0, 0.14);
+  --mm-divider: rgba(0, 0, 0, 0.06);
+
+  /* Text */
+  --mm-text: #1a1a1a;
+  --mm-text-2: #424242;
+  --mm-text-3: #6e6e6e;
+  --mm-text-4: #9a9a9a;
+
+  /* Shadows */
+  --mm-shadow-card: 0 1px 0 rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --mm-shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
+
+  /* Status */
+  --mm-ok: #16a34a;
+  --mm-ok-soft: #dcfce7;
+  --mm-warn: #d97706;
+  --mm-warn-soft: #fef3c7;
+  --mm-err: #dc2626;
+  --mm-err-soft: #fee2e2;
+  --mm-info: #2563eb;
+
+  /* Provider tints */
+  --mm-prov-openai: #10a37f;
+  --mm-prov-anthropic: #c96442;
+  --mm-prov-claude_code: #cc785c;
+  --mm-prov-google: #4285f4;
+  --mm-prov-xai: #52525b;
+
+  /* Accent */
+  --mm-accent: #4f7cff;
+  --mm-accent-soft: rgba(79, 124, 255, 0.1);
+
+  /* Density: compact (default) */
+  --mm-row: 24px;
+  --mm-pad: 8px;
+  --mm-gap: 8px;
+  --mm-fs: 12px;
+  --mm-fs-sm: 11px;
+  --mm-fs-num: 12px;
+
+  /* Radii */
+  --mm-radius: 8px;
+  --mm-radius-sm: 6px;
+}
+
+[data-mm-density="comfortable"] {
+  --mm-row: 30px;
+  --mm-pad: 12px;
+  --mm-gap: 12px;
+  --mm-fs: 13px;
+  --mm-fs-sm: 12px;
+  --mm-fs-num: 13px;
+}
+
+[data-mm-theme="dark"] {
+  --mm-bg: #1c1c1c;
+  --mm-chrome: #232323;
+  --mm-surface: #2a2a2a;
+  --mm-surface-2: #262626;
+  --mm-surface-hover: #313131;
+  --mm-border: rgba(255, 255, 255, 0.08);
+  --mm-border-strong: rgba(255, 255, 255, 0.14);
+  --mm-divider: rgba(255, 255, 255, 0.06);
+  --mm-text: #f3f3f3;
+  --mm-text-2: #d4d4d4;
+  --mm-text-3: #a3a3a3;
+  --mm-text-4: #737373;
+  --mm-shadow-card: 0 1px 0 rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --mm-shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --mm-ok-soft: rgba(34, 197, 94, 0.18);
+  --mm-warn-soft: rgba(245, 158, 11, 0.18);
+  --mm-err-soft: rgba(239, 68, 68, 0.18);
+  --mm-accent-soft: rgba(79, 124, 255, 0.18);
+}
+
+/* ── Base primitives ───────────────────────────────────────────────────────── */
+
+.mm-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+.mm-mono {
+  font-family: var(--mm-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Card */
+.mm-card {
+  background: var(--mm-surface);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius);
+  box-shadow: var(--mm-shadow-card);
+}
+
+.mm-divider {
+  height: 1px;
+  background: var(--mm-divider);
+}
+
+/* Label */
+.mm-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mm-text-3);
+}
+
+/* Pill */
+.mm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--mm-surface-2);
+  color: var(--mm-text-2);
+  border: 1px solid var(--mm-border);
+}
+.mm-pill.ok { color: var(--mm-ok); background: var(--mm-ok-soft); border-color: transparent; }
+.mm-pill.warn { color: var(--mm-warn); background: var(--mm-warn-soft); border-color: transparent; }
+.mm-pill.err { color: var(--mm-err); background: var(--mm-err-soft); border-color: transparent; }
+
+/* Dot */
+.mm-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+/* Provider mark */
+.mm-prov-mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.mm-prov-mark.openai      { background: var(--mm-prov-openai); }
+.mm-prov-mark.anthropic   { background: var(--mm-prov-anthropic); }
+.mm-prov-mark.claude_code { background: var(--mm-prov-claude_code); }
+.mm-prov-mark.google      { background: var(--mm-prov-google); }
+.mm-prov-mark.xai         { background: var(--mm-prov-xai); }
+
+/* Button */
+.mm-btn {
+  appearance: none;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--mm-border-strong);
+  background: var(--mm-surface);
+  color: var(--mm-text);
+  font-family: inherit;
+  font-size: var(--mm-fs-sm);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+  white-space: nowrap;
+}
+.mm-btn:hover { background: var(--mm-surface-hover); }
+.mm-btn.primary { background: var(--mm-accent); color: #fff; border-color: transparent; }
+.mm-btn.primary:hover { filter: brightness(1.05); }
+.mm-btn.ghost { border-color: transparent; background: transparent; }
+.mm-btn.ghost:hover { background: var(--mm-surface-hover); }
+.mm-btn:disabled { opacity: 0.45; pointer-events: none; }
+
+/* Input */
+.mm-input {
+  appearance: none;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--mm-border-strong);
+  background: var(--mm-surface);
+  color: var(--mm-text);
+  font-family: inherit;
+  font-size: var(--mm-fs);
+  width: 100%;
+  outline: none;
+}
+.mm-input:focus {
+  border-color: var(--mm-accent);
+  box-shadow: 0 0 0 2px var(--mm-accent-soft);
+}
+.mm-input::placeholder { color: var(--mm-text-4); }
+
+/* Tabs */
+.mm-tabs { display: flex; gap: 2px; }
+.mm-tab {
+  height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--mm-fs-sm);
+  color: var(--mm-text-2);
+  border-radius: 6px;
+  cursor: default;
+}
+.mm-tab:hover { background: var(--mm-surface-hover); }
+.mm-tab.active {
+  background: var(--mm-surface);
+  color: var(--mm-text);
+  box-shadow: inset 0 0 0 1px var(--mm-border);
+}
+
+/* Icon button */
+.mm-iconbtn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: var(--mm-text-3);
+  cursor: default;
+}
+.mm-iconbtn:hover { background: var(--mm-surface-hover); color: var(--mm-text); }
+.mm-iconbtn:disabled { opacity: 0.35; pointer-events: none; }
+
+/* Sync indicator */
+.mm-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--mm-fs-sm);
+  color: var(--mm-text-3);
+}
+.mm-sync .mm-dot { width: 7px; height: 7px; }
+.mm-sync.ok   { color: var(--mm-ok); }
+.mm-sync.warn { color: var(--mm-warn); }
+.mm-sync.err  { color: var(--mm-err); }
+.mm-sync.syncing .mm-dot {
+  background: var(--mm-info);
+  animation: mm-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes mm-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(1.4); }
+}
+
+/* Title bar */
+.mm-titlebar {
+  height: 32px;
+  flex: 0 0 32px;
+  display: flex;
+  align-items: center;
+  background: var(--mm-chrome);
+  padding-left: 12px;
+  border-bottom: 1px solid var(--mm-divider);
+  user-select: none;
+}
+.mm-titlebar .mm-title {
+  font-size: 12px;
+  color: var(--mm-text-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mm-title-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, var(--mm-accent), var(--mm-prov-anthropic));
+  flex: 0 0 auto;
+}
+.mm-wctrls { margin-left: auto; display: flex; height: 100%; }
+.mm-wctrl {
+  width: 46px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mm-text-2);
+  cursor: default;
+}
+.mm-wctrl:hover { background: var(--mm-surface-hover); }
+.mm-wctrl.close:hover { background: #e81123; color: #fff; }
+
+/* ── Left rail (52px icon-only nav) ──────────────────────────────────────── */
+
+.sv-side {
+  width: 52px;
+  background: var(--mm-chrome);
+  border-right: 1px solid var(--mm-divider);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.sv-side-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mm-text-3);
+  cursor: default;
+  position: relative;
+  flex: 0 0 auto;
+}
+.sv-side-btn:hover { background: var(--mm-surface-hover); color: var(--mm-text); }
+.sv-side-btn.active {
+  background: var(--mm-surface);
+  color: var(--mm-text);
+  box-shadow: inset 0 0 0 1px var(--mm-border);
+}
+.sv-side-btn.active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--mm-accent);
+}
+.sv-side-spacer { flex: 1; }
+
+/* ── Feed pane ───────────────────────────────────────────────────────────── */
+
+.sv-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px 20px;
+  background: var(--mm-bg);
+}
+.sv-feed::-webkit-scrollbar { width: 8px; }
+.sv-feed::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.10);
+  border-radius: 4px;
+  border: 2px solid var(--mm-bg);
+  background-clip: content-box;
+}
+
+/* ── Provider summary card ───────────────────────────────────────────────── */
+
+.sv-card {
+  background: var(--mm-surface);
+  border: 1px solid var(--mm-border);
+  border-radius: 12px;
+  box-shadow: var(--mm-shadow-card);
+  padding: 12px 14px 10px;
+  margin-bottom: 8px;
+  cursor: default;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+}
+.sv-card:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-color: var(--mm-border-strong);
+  transform: translateY(-1px);
+}
+
+.sv-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sv-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.sv-card-sub {
+  font-size: 10.5px;
+  color: var(--mm-text-3);
+  line-height: 1.2;
+}
+
+/* Chart wrapper — relative so tooltip can be absolute */
+.sv-chart-wrap { position: relative; width: 100%; }
+
+/* Totals block (right-aligned in the card head) */
+.sv-head-totals {
+  margin-left: auto;
+  text-align: right;
+  line-height: 1;
+}
+.sv-totals-amount {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--mm-text);
+}
+.sv-totals-period {
+  font-size: 9.5px;
+  color: var(--mm-text-3);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* Footer row of small stats */
+.sv-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 8px;
+  margin-top: 6px;
+  border-top: 1px solid var(--mm-divider);
+}
+.sv-stat { display: flex; flex-direction: column; gap: 0; }
+.sv-stat-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mm-text-3);
+}
+.sv-stat-val {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sync status pill */
+.sv-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--mm-text-3);
+  margin-left: auto;
+}
+.sv-status .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+/* ── Aggregate card ──────────────────────────────────────────────────────── */
+
+.sv-agg {
+  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  border: 1px solid var(--mm-border);
+  border-radius: 14px;
+  padding: 14px 16px 12px;
+  margin-bottom: 12px;
+  box-shadow: var(--mm-shadow-card);
+}
+[data-mm-theme="dark"] .sv-agg {
+  background: linear-gradient(180deg, var(--mm-surface) 0%, var(--mm-surface-2) 100%);
+}
+
+.sv-agg-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.sv-agg-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--mm-text-2);
+  letter-spacing: 0.02em;
+}
+.sv-agg-sub {
+  font-size: 10.5px;
+  color: var(--mm-text-3);
+}
+
+/* ── Period tabs ─────────────────────────────────────────────────────────── */
+
+.sv-period-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--mm-surface-2);
+  border-radius: 7px;
+  border: 1px solid var(--mm-border);
+}
+.sv-period-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--mm-text-3);
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+}
+.sv-period-tab:hover { color: var(--mm-text); }
+.sv-period-tab.active {
+  background: var(--mm-surface);
+  color: var(--mm-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 0 0 1px var(--mm-border);
+}
+
+/* ── Section heading ─────────────────────────────────────────────────────── */
+
+.sv-feed-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 4px 8px;
+}
+.sv-feed-head h3 {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--mm-text-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sv-feed-head .count {
+  font-size: 10.5px;
+  color: var(--mm-text-4);
+  margin-left: auto;
+}
+
+/* ── Bar chart tooltip ───────────────────────────────────────────────────── */
+
+.sv-tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  font-variant-numeric: tabular-nums;
+}
+.sv-tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1a1a1a;
+}
+
+/* Sidebar — legacy class alias kept for focus-ring rule below */
+.mm-side { display: none; }
+
+/* Money */
+.mm-money { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.mm-money .mm-money-cents { color: var(--mm-text-3); }
+.mm-delta-up   { color: var(--mm-err); }
+.mm-delta-down { color: var(--mm-ok); }
+
+/* Scrollbar reset inside cards */
+.mm-card *::-webkit-scrollbar { display: none; }
+.mm-card * { scrollbar-width: none; }
+
+/* ── Keyboard focus rings ──────────────────────────────────────────────────── */
+
+.mm-btn:focus-visible,
+.mm-iconbtn:focus-visible,
+.mm-tab:focus-visible,
+.sv-side-btn:focus-visible,
+.sv-period-tab:focus-visible {
+  outline: 2px solid var(--mm-accent);
+  outline-offset: 2px;
+}
+
+/* Inputs already use border + box-shadow for focus; suppress outline */
+.mm-input:focus-visible { outline: none; }
+
+/* Title-bar window controls: button reset + inset ring so it fits in the bar */
+button.mm-wctrl {
+  appearance: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  font: inherit;
+}
+button.mm-wctrl:focus-visible {
+  outline: 2px solid var(--mm-accent);
+  outline-offset: -3px;
+}
