@@ -4,15 +4,15 @@ import { relativeTime } from "../../lib/time";
 
 interface Props {
   indicator: Indicator;
-  lastTickAt: number | null;
+  lastSyncedAt: number | null;
   paused: boolean;
   hasProviders?: boolean;
 }
 
-export function SyncIndicator({ indicator, lastTickAt, paused, hasProviders = true }: Props) {
+export function SyncIndicator({ indicator, lastSyncedAt, paused, hasProviders = true }: Props) {
   const [, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    const id = setInterval(() => setTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
 
@@ -29,13 +29,13 @@ export function SyncIndicator({ indicator, lastTickAt, paused, hasProviders = tr
     label = "syncing now…";
   } else if (indicator === "amber") {
     cls += " warn";
-    label = lastTickAt ? `stale · ${relativeTime(lastTickAt)}` : "stale";
+    label = lastSyncedAt ? `stale · ${relativeTime(lastSyncedAt)}` : "stale";
   } else if (indicator === "grey") {
     label = "sync paused";
   } else {
     // green
     cls += " ok";
-    label = lastTickAt ? `synced ${relativeTime(lastTickAt)}` : "synced";
+    label = lastSyncedAt ? `synced ${relativeTime(lastSyncedAt)}` : "synced";
   }
 
   return (

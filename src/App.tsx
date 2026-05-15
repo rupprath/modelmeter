@@ -58,6 +58,7 @@ function AppRoutes() {
   }
 
   const hasProviders = providers.length > 0;
+  const lastSyncedAt = providers.reduce<number>((max, p) => Math.max(max, p.last_sync_succeeded_at ?? 0), 0) || null;
 
   return (
     <Routes>
@@ -76,6 +77,8 @@ function AppRoutes() {
             <Providers
               providers={providers}
               providerKinds={providerKinds}
+              syncStatus={syncStatus}
+              lastSyncedAt={lastSyncedAt}
               onProvidersChanged={refreshProviders}
             />
           </AppShell>
@@ -85,7 +88,7 @@ function AppRoutes() {
         path="/settings"
         element={
           <AppShell onRefresh={handleRefresh}>
-            <GeneralSettings />
+            <GeneralSettings syncStatus={syncStatus} lastSyncedAt={lastSyncedAt} />
           </AppShell>
         }
       />

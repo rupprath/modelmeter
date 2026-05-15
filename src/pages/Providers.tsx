@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Server, Plus, Trash2, CheckCircle, XCircle, Loader } from "lucide-react";
 import { Toolbar } from "../components/layout/Toolbar";
 import { addProvider, removeProvider, validateProviderKey } from "../lib/tauri";
-import { type Provider, type ProviderKindMeta } from "../lib/types";
+import { type Provider, type ProviderKindMeta, type SyncStatus } from "../lib/types";
 
 interface Props {
   providers: Provider[];
   onProvidersChanged: () => void;
   providerKinds: ProviderKindMeta[];
+  syncStatus: SyncStatus | null;
+  lastSyncedAt: number | null;
 }
 
 // Tauri 2 invoke errors are plain objects like { message: string }, not Error instances.
@@ -372,14 +374,15 @@ function ProviderRow({
 
 // ── Providers page ─────────────────────────────────────────────────────────
 
-export function Providers({ providers, onProvidersChanged, providerKinds }: Props) {
+export function Providers({ providers, onProvidersChanged, providerKinds, syncStatus, lastSyncedAt }: Props) {
   const [showAdd, setShowAdd] = useState(false);
 
   return (
     <>
       <Toolbar
         title="Providers"
-        syncStatus={null}
+        syncStatus={syncStatus}
+        lastSyncedAt={lastSyncedAt}
         hasProviders={providers.length > 0}
         onRefresh={() => {}}
         right={

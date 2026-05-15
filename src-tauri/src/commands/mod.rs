@@ -5,3 +5,4 @@ pub mod providers;
 pub mod queries;
 pub mod settings;
 pub mod sync;
+pub mod xai;

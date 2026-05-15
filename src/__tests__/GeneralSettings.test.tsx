@@ -42,7 +42,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 function renderPage() {
   return render(
     <MemoryRouter>
-      <GeneralSettings />
+      <GeneralSettings syncStatus={null} lastSyncedAt={null} />
     </MemoryRouter>,
   );
 }

@@ -18,6 +18,7 @@
 pub mod anthropic;
 pub mod claude_code;
 pub mod openai;
+pub mod xai;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -371,6 +372,7 @@ pub static REGISTRY: &[ProviderDescriptor] = &[
     openai::DESCRIPTOR,
     anthropic::DESCRIPTOR,
     claude_code::DESCRIPTOR,
+    xai::DESCRIPTOR,
 ];
 
 // ---------------------------------------------------------------------------

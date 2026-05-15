@@ -11,9 +11,16 @@ interface Props {
   color?: string;
   height?: number;
   padTop?: number;
+  currency?: string;
+  /**
+   * Optional per-bar labels (length must match `data`). When provided, used
+   * for both the X-axis ticks and the hover tooltip's prefix. When omitted,
+   * the bars are labelled as days ago — "today", "1d ago", "2d", etc.
+   */
+  labels?: string[];
 }
 
-export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10 }: Props) {
+export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10, currency = 'USD', labels }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
 
@@ -26,8 +33,11 @@ export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10 }:
   const gap = 2;
   const bw = (WIDTH - gap * (n - 1)) / n;
 
-  const ticks = [0, Math.floor(n / 3), Math.floor((2 * n) / 3), n - 1];
+  const ticks = n <= 4
+    ? Array.from({ length: n }, (_, i) => i)
+    : [0, Math.floor(n / 3), Math.floor((2 * n) / 3), n - 1];
   const tickLabels = ticks.map((i) => {
+    if (labels) return labels[i] ?? "";
     const daysAgo = n - 1 - i;
     return daysAgo === 0 ? "today" : `${daysAgo}d`;
   });
@@ -47,7 +57,8 @@ export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10 }:
     setHover({ i: idx, x: cxPx, value: data[idx] });
   }
 
-  const daysAgoLabel = (i: number) => {
+  const tooltipLabel = (i: number): string => {
+    if (labels) return labels[i] ?? "";
     const d = n - 1 - i;
     return d === 0 ? "today" : `${d}d ago`;
   };
@@ -115,7 +126,7 @@ export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10 }:
           className="sv-tooltip"
           style={{ left: hover.x, top: padTop + 2 }}
         >
-          {daysAgoLabel(hover.i)} · ${hover.value.toFixed(2)}
+          {tooltipLabel(hover.i)} · {new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(hover.value)}
         </div>
       )}
     </div>

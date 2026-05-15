@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Toolbar } from "../../components/layout/Toolbar";
 import { getConfig, setConfig, type AppSettings } from "../../lib/tauri";
 import { applyThemePref, emitThemeChanged, type ThemePref } from "../../lib/theme";
+import { type SyncStatus } from "../../lib/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -48,7 +49,12 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export function GeneralSettings() {
+interface Props {
+  syncStatus: SyncStatus | null;
+  lastSyncedAt: number | null;
+}
+
+export function GeneralSettings({ syncStatus, lastSyncedAt }: Props) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -103,7 +109,8 @@ export function GeneralSettings() {
     <>
       <Toolbar
         title="Settings"
-        syncStatus={null}
+        syncStatus={syncStatus}
+        lastSyncedAt={lastSyncedAt}
         right={
           saved ? (
             <span style={{ fontSize: 11, color: "var(--mm-ok)" }}>Saved</span>

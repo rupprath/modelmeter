@@ -13,6 +13,7 @@ ModelMeter polls each provider's usage and billing endpoints on a configurable s
 | OpenAI | v1 | Admin API key |
 | Anthropic | v1 | Admin API key |
 | Claude (Claude Code) | v1 | Claude Code OAuth — no API key required |
+| x.ai (Grok) | v1 | Read-only Management Key (`xai-token-…`) |
 
 ## Setting up Claude (Claude Code)
 
@@ -68,15 +69,46 @@ Anthropic uses Admin API keys (`sk-ant-admin-…` prefix), available only on org
 
 Create one at: https://console.anthropic.com/settings/admin-keys
 
+### x.ai (Grok)
+
+x.ai has two distinct kinds of API key, and ModelMeter needs the second one:
+
+- **Inference keys** (`xai-…` prefix) — created at console.x.ai → **API Keys**. Used to call Grok models. **Will not work in ModelMeter** — they have no billing permissions.
+- **Management keys** (`xai-token-…` prefix) — created at console.x.ai → **Settings** → **Management Keys**. Required for billing reads.
+
+**Generating the management key:**
+
+1. Open [console.x.ai](https://console.x.ai)
+2. Click **Settings** in the sidebar
+3. Click **Management Keys**
+4. Click **Create New Management Key**
+5. **IMPORTANT — make it read-only.** When given the option, choose **Read-only** access. ModelMeter only ever reads billing data and never writes anything. A read-only key cannot top up your account, modify your billing, or make any change at all if it were ever compromised. There is no good reason to give ModelMeter a writable management key.
+6. Name the key something memorable (e.g. "ModelMeter — read-only") and create it
+7. Copy the key — it starts with `xai-token-` and is shown only once
+8. Paste it into the **Management Key** field in ModelMeter's Add Provider modal
+
+If you paste an inference key (`xai-…` without the `-token-` part) by mistake, ModelMeter detects the prefix and shows a message directing you to the Management Keys page.
+
 ### A note on read-only admin keys
 
-Read-only admin keys limit the blast radius of a compromised key to data exposure only — they cannot be used to modify your account or make changes on your behalf. OpenAI supports this today and we strongly recommend using it. Anthropic does not currently offer a read-only variant of their admin keys, so a full admin key is required there for now. We will update this documentation if that changes.
+Read-only admin keys limit the blast radius of a compromised key to data exposure only — they cannot be used to modify your account or make changes on your behalf. OpenAI and x.ai both support this today and we strongly recommend using it for both. Anthropic does not currently offer a read-only variant of their admin keys, so a full admin key is required there for now. We will update this documentation if that changes.
 
 ## A note on API design
 
 We would really like to see a uniform API structure with read-only keys from inference providers. Ideally every provider would offer a single read-only credential that grants access to usage and billing data without any write permissions or inference capabilities — the same key, the same endpoint shape, the same pagination model. That would let ModelMeter (and tools like it) be added in minutes rather than hours, and would make it practical for users to grant monitoring access without exposing their full admin key surface. If you work at an AI provider and are thinking about your management API design, please consider this.
 
-## Providers we would like to add
+## Providers we plan to implement
+
+The following providers have been researched and confirmed to expose a REST balance endpoint with pay-as-you-go billing (no recurring subscription required). They are queued for implementation in upcoming releases.
+
+- [ ] **DeepSeek** — `GET https://api.deepseek.com/user/balance`. Standard API key. 5 million free tokens on signup, pay-as-you-go after.
+- [ ] **HeyGen** — `GET https://api.heygen.com/v2/user/remaining_quota`. Standard API key. $5 one-time credit purchase, no subscription. Balance display only (no usage history available from the provider).
+- [ ] **Stability AI** — `GET https://api.stability.ai/v1/user/balance`. Standard API key. Pay-as-you-go credits (1 credit = $0.01). Balance display only.
+- [ ] **OpenRouter** — `GET https://openrouter.ai/api/v1/credits`. Standard API key. LLM aggregator — one key gives access to many underlying models. $5 minimum credit top-up.
+
+## Providers we would like to add in the future
+
+These providers have something compatible with ModelMeter but aren't yet a clean fit. We are watching for the specific gap to close.
 
 ### Google (Gemini)
 
@@ -86,15 +118,31 @@ The only programmatic path Google provides is [BigQuery billing export](https://
 
 We are watching for Google to release a direct cost API. If they do, adding Gemini support will be straightforward.
 
-### xAI Grok
+### ElevenLabs
 
-We want to support Grok but the billing data is currently only accessible through xAI's Management API, which has two practical problems for ModelMeter users:
+ElevenLabs has a balance REST endpoint (`GET /v1/user/subscription`) that works correctly, but they do not offer pay-as-you-go billing. Their plans are monthly subscriptions starting at $6 per month with no refund for cancellations mid-cycle, which conflicts with ModelMeter's "spend a little once and stop" design goal.
 
-1. **Uncertain access tier.** The Management API is documented primarily for enterprise teams. It is unclear whether a standard individual developer account has access to the billing usage endpoint. If it is enterprise-only, most ModelMeter users would not be able to use it.
+We will add support when ElevenLabs offers one-time credit purchases.
 
-2. **Two credentials required.** The Management API uses a separate management key (distinct from the regular API key) and requires the user to look up their team ID from the console. This is a higher setup burden than the single-key flow ModelMeter uses for OpenAI and Anthropic.
+## Providers we cannot support at this time
 
-We are watching for xAI to clarify access tiers and ideally to expose billing data through a simpler single-key API.
+These providers were researched but do not currently expose programmatic access to balance or billing data. They cannot be added to ModelMeter until they ship a REST balance endpoint.
+
+- **Mistral AI** — No REST endpoint for balance or billing; data is shown in console.mistral.ai only.
+- **Groq** — No billing REST API. A community feature request is open but unimplemented.
+- **Together AI** — No balance or billing REST API; web console only.
+- **Perplexity** — No balance REST API; web console only.
+- **Cohere** — No balance REST API; web console only.
+- **Fireworks AI** — Balance accessible only via the `firectl` CLI tool, not REST.
+- **Replicate** — No balance or billing REST API; web console only.
+- **AI21 Labs** — No balance or billing REST API; web console only.
+- **Cerebras** — No balance REST API. Also requires a $10 minimum deposit.
+- **Hugging Face** — No balance REST API; quota visible in dashboard only.
+- **Runway ML** — No balance REST API; also requires a $10 minimum credit purchase.
+- **Nvidia NIM** — No balance REST API; free credits visible in dashboard only.
+- **Lambda Labs** — No balance REST API; billing is for GPU compute, viewable in console only.
+
+If any of these providers add a REST balance endpoint, please open an issue.
 
 ## Platform
 
@@ -105,7 +153,7 @@ We are watching for xAI to clarify access tiers and ideally to expose billing da
 
 ### Option 1 — Download the pre-built binary (recommended)
 
-**[Download ModelMeter v1.0 for Windows (.exe)](https://github.com/rupprath/modelmeter/releases/download/v1.0/modelmeter.exe)**
+**[Download ModelMeter v1.1 for Windows (.exe)](https://github.com/rupprath/modelmeter/releases/download/v1.1/modelmeter.exe)**
 
 Or browse all releases on the [Releases page](https://github.com/rupprath/modelmeter/releases). No installer, no runtime dependencies, no admin rights required.
 
@@ -127,7 +175,7 @@ npm install
 npm run tauri build
 ```
 
-The binary lands at `src-tauri/target/release/modelmeter.exe` (Windows) or `src-tauri/target/release/modelmeter` (macOS).
+The binary lands at `target/release/modelmeter.exe` (Windows) or `target/release/modelmeter` (macOS).
 
 **Windows — OpenSSL:**
 Download OpenSSL 3.x for Windows x64 MSVC from [slproweb.com](https://slproweb.com/products/Win32OpenSSL.html) (or via `vcpkg install openssl:x64-windows-static-md`) and place the headers and `.lib` files at:
@@ -197,6 +245,7 @@ This is intentional: **we do not know how many people use this project, and we d
 |---|---|---|
 | Your AI provider (OpenAI, Anthropic) | Your admin API key for that provider, over TLS | Each sync cycle, to fetch usage/billing data |
 | api.anthropic.com | OAuth access token already stored by Claude Code, over TLS | When the Claude provider refreshes, to fetch rate-limit usage |
+| management-api.x.ai | Your x.ai management key, over TLS | Each sync cycle, to fetch the prepaid balance |
 | Anywhere else | Nothing | Never |
 
 ### Key storage

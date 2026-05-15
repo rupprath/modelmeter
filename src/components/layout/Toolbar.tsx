@@ -6,6 +6,7 @@ import { type SyncStatus } from "../../lib/types";
 interface Props {
   title: string;
   syncStatus: SyncStatus | null;
+  lastSyncedAt?: number | null;
   onRefresh?: () => void;
   right?: ReactNode;
   hasProviders?: boolean;
@@ -18,7 +19,7 @@ const IDLE_SYNC: SyncStatus = {
   providers: {},
 };
 
-export function Toolbar({ title, syncStatus, onRefresh, right, hasProviders = true }: Props) {
+export function Toolbar({ title, syncStatus, lastSyncedAt = null, onRefresh, right, hasProviders = true }: Props) {
   const status = syncStatus ?? IDLE_SYNC;
   return (
     <div
@@ -37,7 +38,7 @@ export function Toolbar({ title, syncStatus, onRefresh, right, hasProviders = tr
 
       <SyncIndicator
         indicator={status.indicator}
-        lastTickAt={status.last_tick_at}
+        lastSyncedAt={lastSyncedAt}
         paused={status.paused}
         hasProviders={hasProviders}
       />

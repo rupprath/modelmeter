@@ -20,6 +20,7 @@ use commands::{
     queries::{get_latest_balance, get_usage_summary},
     settings::{get_config, set_config},
     sync::{get_sync_status, trigger_sync_all},
+    xai::get_xai_monthly_history,
 };
 
 use tauri::{
@@ -188,6 +189,8 @@ pub fn run() {
             // Claude Code plan usage
             get_claude_code_plan_usage,
             get_cached_claude_code_result,
+            // x.ai monthly invoice history
+            get_xai_monthly_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -76,6 +76,12 @@ export interface UsageSummary {
   total_request_count: number;
 }
 
+export interface MonthlySpend {
+  year: number;
+  month: number; // 1-12
+  amount_usd: number;
+}
+
 // ── Sync ───────────────────────────────────────────────────────────────────
 
 export type WorkerState =

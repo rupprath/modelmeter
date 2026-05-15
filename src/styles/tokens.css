@@ -435,6 +435,31 @@
   margin-top: 4px;
 }
 
+/* Prominent balance row (above the footer stats). Shown for providers that
+   expose a credit balance — currently x.ai. The aim is to make the balance
+   the eye-level figure on a card whose chart is intentionally empty. */
+.sv-balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 0 6px;
+  margin-top: 4px;
+  border-top: 1px solid var(--mm-divider);
+}
+.sv-balance-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mm-text-3);
+  letter-spacing: 0.02em;
+}
+.sv-balance-val {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--mm-text);
+}
+
 /* Footer row of small stats */
 .sv-card-foot {
   display: flex;
@@ -591,7 +616,6 @@
 
 /* Money */
 .mm-money { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
-.mm-money .mm-money-cents { color: var(--mm-text-3); }
 .mm-delta-up   { color: var(--mm-err); }
 .mm-delta-down { color: var(--mm-ok); }
 

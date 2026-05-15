@@ -15,6 +15,7 @@ import type {
   ProviderKindMeta,
   PlanUsageResult,
   CachedClaudeCodeResult,
+  MonthlySpend,
 } from "./types";
 
 // ── Provider commands ──────────────────────────────────────────────────────
@@ -84,6 +85,11 @@ export const getClaudeCodePlanUsage = (): Promise<PlanUsageResult> =>
 
 export const getCachedClaudeCodeResult = (): Promise<CachedClaudeCodeResult | null> =>
   invoke("get_cached_claude_code_result");
+
+// ── x.ai monthly invoice history ──────────────────────────────────────────
+
+export const getXaiMonthlyHistory = (providerId: number): Promise<MonthlySpend[]> =>
+  invoke("get_xai_monthly_history", { providerId });
 
 // ── Event listeners ────────────────────────────────────────────────────────
 

@@ -7,3 +7,5 @@ app-icon.png
 .claude/
 tmp/
 deps/
+**/__pycache__/
+*.pyc
