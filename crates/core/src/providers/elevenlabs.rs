@@ -27,13 +27,12 @@ use serde::Deserialize;
 use zeroize::Zeroizing;
 
 use super::{
-    check_status, map_reqwest_err, resolve_creds, unix_now, Balance, BoxFuture, BucketGranularity,
-    CostSource, CredsAccessor, InvalidReason, KeyValidation, Provider, ProviderDescriptor,
-    ProviderError, TimeRange, UsageRecord,
+    build_clients, check_status, map_reqwest_err, resolve_creds, unix_now, Balance, BoxFuture,
+    BucketGranularity, CostSource, CredsAccessor, InvalidReason, KeyValidation, Provider,
+    ProviderDescriptor, ProviderError, TimeRange, UsageRecord,
 };
 
 const BASE_URL: &str = "https://api.elevenlabs.io";
-const VALIDATE_TIMEOUT_SECS: u64 = 10;
 
 /// Required prefix for ElevenLabs API keys created via the web console.
 /// Other formats (legacy short keys without underscore, OAuth tokens, etc.) are
@@ -70,16 +69,11 @@ impl ElevenLabsProvider {
         base_url: &str,
         creds: impl Fn() -> Result<Zeroizing<String>> + Send + Sync + 'static,
     ) -> Self {
+        let (client, validate_client) = build_clients("ElevenLabs");
         Self {
             creds: Box::new(creds),
-            client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(30))
-                .build()
-                .expect("failed to build ElevenLabs HTTP client"),
-            validate_client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(VALIDATE_TIMEOUT_SECS))
-                .build()
-                .expect("failed to build ElevenLabs validation HTTP client"),
+            client,
+            validate_client,
             base_url: base_url.to_string(),
         }
     }
@@ -154,11 +148,11 @@ impl From<SubscriptionResponse> for SubscriptionState {
 // ProviderDescriptor
 // ---------------------------------------------------------------------------
 
-fn build(creds: CredsAccessor) -> Box<dyn Provider> {
+fn build(creds: CredsAccessor, _aux: Option<&str>) -> Box<dyn Provider> {
     Box::new(ElevenLabsProvider::new(creds))
 }
 
-fn build_with_key(key: Zeroizing<String>) -> Box<dyn Provider> {
+fn build_with_key(key: Zeroizing<String>, _aux: Option<&str>) -> Box<dyn Provider> {
     Box::new(ElevenLabsProvider::new(move || Ok(key.clone())))
 }
 
@@ -171,6 +165,9 @@ pub const DESCRIPTOR: ProviderDescriptor = ProviderDescriptor {
     key_label: "API Key",
     key_is_secret: true,
     key_required: true,
+    aux_field_label: None,
+    aux_field_hint: None,
+    aux_field_validator: None,
     build,
     build_with_key,
 };

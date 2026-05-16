@@ -331,6 +331,9 @@ pub struct ProviderRow {
     pub last_sync_succeeded_at: Option<i64>,
     pub last_sync_status: String,
     pub created_at: i64,
+    /// Optional auxiliary identifier the provider needs alongside the API key.
+    /// Currently only x.ai uses this (team UUID). NULL for every other provider.
+    pub team_id: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -362,10 +365,24 @@ pub struct ProviderDescriptor {
     /// Whether the user must supply a credential. False for providers that
     /// authenticate via a fixed local file (e.g. claude_code).
     pub key_required: bool,
-    /// Builds a live provider using a just-in-time keyring accessor.
-    pub build: fn(CredsAccessor) -> Box<dyn Provider>,
-    /// Builds a provider wrapping a plaintext key (used for key validation only).
-    pub build_with_key: fn(Zeroizing<String>) -> Box<dyn Provider>,
+    /// Optional second input the provider needs alongside the key, with a UI
+    /// label (e.g. `Some("Team ID")` for x.ai). `None` for providers that
+    /// authenticate with key alone.
+    pub aux_field_label: Option<&'static str>,
+    /// Optional human hint shown below the aux input describing where to find
+    /// the value (e.g. console.x.ai → Settings → Teams).
+    pub aux_field_hint: Option<&'static str>,
+    /// Validates the aux value before validate/add runs. Returns `Err(msg)`
+    /// with a short user-facing message if the value is malformed (e.g. not a
+    /// UUID). `None` means no client-side validation; the descriptor's `build`
+    /// function is the only gate.
+    pub aux_field_validator: Option<fn(&str) -> Result<(), &'static str>>,
+    /// Builds a live provider using a just-in-time keyring accessor and the
+    /// optional aux value from the DB row.
+    pub build: fn(CredsAccessor, Option<&str>) -> Box<dyn Provider>,
+    /// Builds a provider wrapping a plaintext key (used for key validation
+    /// only) and the optional aux value the user just typed.
+    pub build_with_key: fn(Zeroizing<String>, Option<&str>) -> Box<dyn Provider>,
 }
 
 /// All registered providers. Add one entry here when adding a new provider.
@@ -380,6 +397,30 @@ pub static REGISTRY: &[ProviderDescriptor] = &[
 // ---------------------------------------------------------------------------
 // Shared HTTP helpers (used by every provider module)
 // ---------------------------------------------------------------------------
+
+/// Default request timeout for the main HTTP client (seconds).
+pub(super) const DEFAULT_TIMEOUT_SECS: u64 = 30;
+/// Request timeout for credential-validation HTTP calls (seconds).
+/// Shorter than `DEFAULT_TIMEOUT_SECS` so an unreachable provider doesn't make
+/// the Add Provider modal feel hung.
+pub(super) const VALIDATE_TIMEOUT_SECS: u64 = 10;
+
+/// Builds the two `reqwest::Client`s every HTTP provider needs:
+/// a main client with `DEFAULT_TIMEOUT_SECS` and a `validate_client` with
+/// `VALIDATE_TIMEOUT_SECS`. `provider_label` is interpolated into the panic
+/// message if the builder ever fails (it can only fail on invalid hardcoded
+/// configuration, so a panic at startup is appropriate).
+pub(super) fn build_clients(provider_label: &str) -> (reqwest::Client, reqwest::Client) {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+        .build()
+        .unwrap_or_else(|e| panic!("failed to build {provider_label} HTTP client: {e}"));
+    let validate_client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(VALIDATE_TIMEOUT_SECS))
+        .build()
+        .unwrap_or_else(|e| panic!("failed to build {provider_label} validation HTTP client: {e}"));
+    (client, validate_client)
+}
 
 /// Maps a `reqwest` transport error to a `ProviderError`.
 pub(super) fn map_reqwest_err(e: reqwest::Error) -> ProviderError {
@@ -421,7 +462,20 @@ pub(super) async fn check_status(
         s if s >= 500 => Err(ProviderError::ServerError { status: s }),
         s => {
             let reason = status.canonical_reason().unwrap_or("unknown client error");
-            let body = resp.text().await.unwrap_or_default();
+            // Cap the error body so a misbehaving / hostile endpoint streaming
+            // a huge body cannot blow up the detail string. 4 KiB is more than
+            // enough for any structured provider error payload.
+            const MAX_ERR_BODY: usize = 4096;
+            let mut body = resp.text().await.unwrap_or_default();
+            if body.len() > MAX_ERR_BODY {
+                // truncate on a char boundary to keep the string valid UTF-8
+                let mut cut = MAX_ERR_BODY;
+                while !body.is_char_boundary(cut) {
+                    cut -= 1;
+                }
+                body.truncate(cut);
+                body.push('…');
+            }
             let detail = if body.is_empty() {
                 reason.to_string()
             } else {
@@ -455,11 +509,15 @@ pub(super) fn resolve_creds(
 // ---------------------------------------------------------------------------
 
 /// Current time as unix UTC seconds.
+///
+/// If the system clock is set before the UNIX epoch (e.g. a dead CMOS battery
+/// resetting Windows to 1601-01-01), returns `0` rather than panicking — the
+/// sync engine treats `0` as "very long ago" and continues working.
 pub fn unix_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .expect("system clock before UNIX epoch")
-        .as_secs() as i64
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 // ---------------------------------------------------------------------------
@@ -476,25 +534,35 @@ pub(crate) fn is_keyring_missing(msg: &str) -> bool {
         || lower.contains("entry not found")
 }
 
-/// Builds a live `Box<dyn Provider>` for the given slug, fetching
-/// credentials just-in-time from the OS keyring.
-pub fn build_provider(slug: &str, secrets: &SecretStore) -> Result<Box<dyn Provider>> {
+/// Builds a live `Box<dyn Provider>` for the given slug, fetching credentials
+/// just-in-time from the OS keyring. `aux` is the optional second identifier
+/// some providers need (e.g. x.ai's team UUID) — looked up from the DB row.
+pub fn build_provider(
+    slug: &str,
+    secrets: &SecretStore,
+    aux: Option<&str>,
+) -> Result<Box<dyn Provider>> {
     let desc = REGISTRY
         .iter()
         .find(|d| d.slug == slug)
         .ok_or_else(|| anyhow::anyhow!("no descriptor registered for provider '{slug}'"))?;
     let accessor = Box::new(secrets.accessor_for(desc.slug));
-    Ok((desc.build)(accessor))
+    Ok((desc.build)(accessor, aux))
 }
 
-/// Builds a temporary `Box<dyn Provider>` wrapping a plaintext key.
-/// Used for key validation before the key is stored in the keyring.
-pub fn build_provider_with_key(slug: &str, key: Zeroizing<String>) -> Result<Box<dyn Provider>> {
+/// Builds a temporary `Box<dyn Provider>` wrapping a plaintext key, used for
+/// key validation before the key is stored in the keyring. `aux` is the
+/// optional second identifier the user supplied alongside the key.
+pub fn build_provider_with_key(
+    slug: &str,
+    key: Zeroizing<String>,
+    aux: Option<&str>,
+) -> Result<Box<dyn Provider>> {
     let desc = REGISTRY
         .iter()
         .find(|d| d.slug == slug)
         .ok_or_else(|| anyhow::anyhow!("unknown provider slug '{slug}'"))?;
-    Ok((desc.build_with_key)(key))
+    Ok((desc.build_with_key)(key, aux))
 }
 
 // ---------------------------------------------------------------------------

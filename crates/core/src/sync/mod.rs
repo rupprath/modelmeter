@@ -461,7 +461,11 @@ impl SyncCoordinator {
         };
 
         // -- Build the provider client ----------------------------------------
-        let provider = match build_provider(&provider_row.provider_type, secrets) {
+        let provider = match build_provider(
+            &provider_row.provider_type,
+            secrets,
+            provider_row.team_id.as_deref(),
+        ) {
             Ok(p) => p,
             Err(e) => {
                 return SyncOutcome::PermanentFailure {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Toolbar } from "../../components/layout/Toolbar";
 import { getConfig, setConfig, type AppSettings } from "../../lib/tauri";
 import { applyThemePref, emitThemeChanged, type ThemePref } from "../../lib/theme";
@@ -58,6 +58,7 @@ export function GeneralSettings({ syncStatus, lastSyncedAt }: Props) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     getConfig().then((cfg) => {
@@ -65,14 +66,25 @@ export function GeneralSettings({ syncStatus, lastSyncedAt }: Props) {
     }).catch(() => {});
   }, []);
 
+  // Clear any pending "Saved" toast timer if the component unmounts mid-toast.
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
+
   const save = async (next: AppSettings) => {
     setSaving(true);
     setSaved(false);
+    if (savedTimerRef.current !== null) clearTimeout(savedTimerRef.current);
     try {
       await setConfig(next);
       setSettings(next);
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      savedTimerRef.current = setTimeout(() => {
+        setSaved(false);
+        savedTimerRef.current = null;
+      }, 2000);
     } finally {
       setSaving(false);
     }

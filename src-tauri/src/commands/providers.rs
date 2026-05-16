@@ -29,6 +29,9 @@ pub struct ProviderDto {
     pub last_sync_succeeded_at: Option<i64>,
     pub last_sync_status: String,
     pub created_at: i64,
+    /// Optional aux identifier (currently only x.ai's team UUID). Surfaced so
+    /// the UI can render "Team: …" subtext on the provider row if desired.
+    pub team_id: Option<String>,
 }
 
 impl From<modelmeter_core::providers::ProviderRow> for ProviderDto {
@@ -41,6 +44,7 @@ impl From<modelmeter_core::providers::ProviderRow> for ProviderDto {
             last_sync_succeeded_at: r.last_sync_succeeded_at,
             last_sync_status: r.last_sync_status,
             created_at: r.created_at,
+            team_id: r.team_id,
         }
     }
 }
@@ -82,16 +86,22 @@ pub async fn list_providers(state: State<'_, AppState>) -> CommandResult<Vec<Pro
 
 /// Adds a provider: stores the key in the OS keyring, creates a DB row, and
 /// triggers an immediate sync. If keyring storage fails, the DB row is rolled back.
+///
+/// `aux_value` is an optional second identifier some providers need alongside
+/// the key (currently only x.ai's team UUID). Must satisfy the descriptor's
+/// `aux_field_validator` if one is defined.
 #[tauri::command]
 pub async fn add_provider(
     state: State<'_, AppState>,
     provider_type: String,
     display_name: String,
     key: String,
+    aux_value: Option<String>,
 ) -> CommandResult<i64> {
     // Wrap immediately so the plaintext is zeroed from memory when dropped.
     let key = Zeroizing::new(key);
     require_known_slug(&provider_type)?;
+    let aux_value = validate_aux(&provider_type, aux_value.as_deref())?;
     let provider_type_str = provider_type;
     let now = unix_now();
 
@@ -99,8 +109,17 @@ pub async fn add_provider(
     let db = state.db.clone();
     let pt_for_db = provider_type_str.clone();
     let display_name_clone = display_name.clone();
+    let aux_for_db = aux_value.clone();
     let provider_id = tokio::task::spawn_blocking(move || {
-        db.with_conn(move |c| crud::create_provider(c, &pt_for_db, &display_name_clone, now))
+        db.with_conn(move |c| {
+            crud::create_provider(
+                c,
+                &pt_for_db,
+                &display_name_clone,
+                aux_for_db.as_deref(),
+                now,
+            )
+        })
     })
     .await
     .map_err(|e| CommandError::new(format!("add_provider task panicked: {e}")))??;
@@ -180,6 +199,11 @@ pub struct ProviderKindDto {
     pub key_is_secret: bool,
     /// Whether the user must supply a credential to add this provider.
     pub key_required: bool,
+    /// Label for the secondary (aux) input the UI should render alongside the
+    /// key. `None` for providers that need only a key.
+    pub aux_field_label: Option<String>,
+    /// Optional hint shown below the aux input.
+    pub aux_field_hint: Option<String>,
 }
 
 /// Returns the list of supported provider types with their display metadata.
@@ -196,6 +220,8 @@ pub async fn list_provider_kinds() -> Vec<ProviderKindDto> {
             key_label: d.key_label.to_string(),
             key_is_secret: d.key_is_secret,
             key_required: d.key_required,
+            aux_field_label: d.aux_field_label.map(|s| s.to_string()),
+            aux_field_hint: d.aux_field_hint.map(|s| s.to_string()),
         })
         .collect()
 }
@@ -210,13 +236,15 @@ pub async fn list_provider_kinds() -> Vec<ProviderKindDto> {
 pub async fn validate_provider_key(
     provider_type: String,
     key: String,
+    aux_value: Option<String>,
 ) -> CommandResult<KeyValidationDto> {
     // Wrap immediately so the plaintext is zeroed from memory when dropped.
     let key = Zeroizing::new(key);
 
     require_known_slug(&provider_type)?;
+    let aux_value = validate_aux(&provider_type, aux_value.as_deref())?;
 
-    let provider = build_provider_with_key(&provider_type, key)
+    let provider = build_provider_with_key(&provider_type, key, aux_value.as_deref())
         .map_err(|e| CommandError::new(e))?;
 
     let result = provider.validate_credential().await?;
@@ -232,5 +260,30 @@ fn require_known_slug(provider_type: &str) -> CommandResult<()> {
         Ok(())
     } else {
         Err(CommandError::new(format!("unknown provider type: {provider_type}")))
+    }
+}
+
+/// Looks up the descriptor for `provider_type` and applies its aux-field
+/// rules to `aux_value`. Returns the trimmed value (or `None` for descriptors
+/// without an aux field). Errors if the descriptor requires an aux value and
+/// none was given, or if the descriptor's validator rejects the value.
+fn validate_aux(provider_type: &str, aux_value: Option<&str>) -> CommandResult<Option<String>> {
+    let desc = REGISTRY
+        .iter()
+        .find(|d| d.slug == provider_type)
+        .ok_or_else(|| CommandError::new(format!("unknown provider type: {provider_type}")))?;
+
+    match (desc.aux_field_label, aux_value) {
+        (None, _) => Ok(None),
+        (Some(label), None) | (Some(label), Some("")) => Err(CommandError::new(format!(
+            "{label} is required for this provider."
+        ))),
+        (Some(_), Some(v)) => {
+            let trimmed = v.trim().to_string();
+            if let Some(validator) = desc.aux_field_validator {
+                validator(&trimmed).map_err(|m| CommandError::new(m.to_string()))?;
+            }
+            Ok(Some(trimmed))
+        }
     }
 }

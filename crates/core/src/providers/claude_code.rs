@@ -162,11 +162,11 @@ pub struct ClaudeCodeProvider;
 // ProviderDescriptor
 // ---------------------------------------------------------------------------
 
-fn build(_creds: CredsAccessor) -> Box<dyn Provider> {
+fn build(_creds: CredsAccessor, _aux: Option<&str>) -> Box<dyn Provider> {
     Box::new(ClaudeCodeProvider)
 }
 
-fn build_with_key(_key: Zeroizing<String>) -> Box<dyn Provider> {
+fn build_with_key(_key: Zeroizing<String>, _aux: Option<&str>) -> Box<dyn Provider> {
     Box::new(ClaudeCodeProvider)
 }
 
@@ -179,6 +179,9 @@ pub const DESCRIPTOR: ProviderDescriptor = ProviderDescriptor {
     key_label: "",
     key_is_secret: false,
     key_required: false,
+    aux_field_label: None,
+    aux_field_hint: None,
+    aux_field_validator: None,
     build,
     build_with_key,
 };

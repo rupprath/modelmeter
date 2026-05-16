@@ -9,9 +9,15 @@
 use serde::Serialize;
 use tauri::State;
 
-use modelmeter_core::providers::xai::{MonthlySpend, XaiProvider};
+use modelmeter_core::{
+    crud,
+    providers::xai::{MonthlySpend, XaiProvider},
+};
 
-use crate::{error::CommandResult, state::AppState};
+use crate::{
+    error::{CommandError, CommandResult},
+    state::AppState,
+};
 
 const MAX_MONTHS: usize = 12;
 
@@ -38,15 +44,29 @@ impl From<MonthlySpend> for MonthlySpendDto {
 #[tauri::command]
 pub async fn get_xai_monthly_history(
     state: State<'_, AppState>,
-    _provider_id: i64,
+    provider_id: i64,
 ) -> CommandResult<Vec<MonthlySpendDto>> {
+    // Look up the configured team_id for this provider row. Without it we
+    // can't address the billing endpoint, so we fail fast with a clear msg.
+    let db = state.db.clone();
+    let row = tokio::task::spawn_blocking(move || db.with_conn(move |c| crud::get_provider(c, provider_id)))
+        .await
+        .map_err(|e| CommandError::new(format!("get_xai_monthly_history task panicked: {e}")))??
+        .ok_or_else(|| CommandError::new("xai provider row not found"))?;
+    let team_id = row.team_id.ok_or_else(|| {
+        CommandError::new(
+            "x.ai provider is missing a Team ID. Remove and re-add the provider, \
+             entering your team UUID alongside the management key.",
+        )
+    })?;
+
     let accessor = state.secrets.accessor_for("xai");
-    let provider = XaiProvider::new(accessor);
+    let provider = XaiProvider::new(accessor, &team_id);
 
     let history = provider
         .fetch_monthly_history(MAX_MONTHS)
         .await
-        .map_err(|e| crate::error::CommandError::new(format!("xai monthly history: {e}")))?;
+        .map_err(|e| CommandError::new(format!("xai monthly history: {e}")))?;
 
     Ok(history.into_iter().map(Into::into).collect())
 }

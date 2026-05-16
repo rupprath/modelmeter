@@ -303,6 +303,16 @@ fn migrations() -> Vec<Migration> {
             // It was never used by any application code and is not planned for v1.x.
             sql: "DROP TABLE IF EXISTS widget_layouts;\n",
         },
+        Migration {
+            id: 7,
+            // v7: Add a nullable `team_id` column on `providers`.
+            //
+            // Only the x.ai provider currently uses it (its billing endpoints
+            // require a team UUID in the URL and x.ai exposes no introspection
+            // path — see crates/core/src/providers/xai.rs module docs).
+            // For every other provider this is NULL.
+            sql: "ALTER TABLE providers ADD COLUMN team_id TEXT;\n",
+        },
     ]
 }
 

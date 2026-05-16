@@ -14,35 +14,29 @@
 //!             `total.val` is signed net cents: negative = unspent credit
 //!             remaining. Displayed balance = -total.val / 100 in USD.
 //!
-//! ## team_id discovery — DEV LIMITATION
+//! ## team_id
 //!
-//! Management keys cannot self-discover their team_id: `api.x.ai/v1/api-key`
-//! rejects them with 400, and `management-api.x.ai` exposes no introspection
-//! endpoint (every `/v1/me`, `/v1/teams`, etc. returns 404). For now the
-//! team_id is hardcoded below for the developer's account. Before shipping,
-//! either (a) add a "Team ID" input alongside the key, or (b) find a working
-//! discovery endpoint x.ai exposes that we haven't tried yet.
+//! Management keys cannot self-discover their team_id. We probed
+//! `management-api.x.ai` exhaustively (no `/v1/teams`, `/v1/me`, `/v1/billing`
+//! list, etc.) and `api.x.ai/v1/api-key` explicitly rejects management keys.
+//! So the user supplies the team UUID alongside the key in the Add Provider
+//! modal; it is stored on the `providers` row (NOT secret, just an identifier)
+//! and threaded through to `XaiProvider::new` at build time.
 
 use anyhow::Result;
 use serde::Deserialize;
 use zeroize::Zeroizing;
 
 use super::{
-    check_status, map_reqwest_err, resolve_creds, unix_now, Balance, BalanceShape, BoxFuture,
-    CredsAccessor, InvalidReason, KeyValidation, Provider, ProviderDescriptor, ProviderError,
-    TimeRange, UsageRecord,
+    build_clients, check_status, map_reqwest_err, resolve_creds, unix_now, Balance, BalanceShape,
+    BoxFuture, CredsAccessor, InvalidReason, KeyValidation, Provider, ProviderDescriptor,
+    ProviderError, TimeRange, UsageRecord,
 };
 
 const BASE_URL: &str = "https://management-api.x.ai";
-const VALIDATE_TIMEOUT_SECS: u64 = 10;
 
 /// Required prefix for x.ai management keys (vs the `xai-…` inference key).
 const MANAGEMENT_KEY_PREFIX: &str = "xai-token-";
-
-/// TODO(team_id): hardcoded for the developer's account during initial
-/// integration. Replace with a discovery mechanism or a second user input
-/// before the v1 release. See module docstring.
-const DEV_TEAM_ID: &str = "ccd583cc-8608-4f5b-8e0b-540038e6755d";
 
 const WRONG_KEY_TYPE_HINT: &str =
     "This looks like an inference API key (used to call Grok models), not a \
@@ -50,6 +44,29 @@ const WRONG_KEY_TYPE_HINT: &str =
      Open console.x.ai → Settings → Management Keys → Create New, generate a \
      read-only key, and paste that here. Read-only is strongly recommended — \
      ModelMeter only ever reads.";
+
+/// Validates a team-id string at the application boundary: lowercase canonical
+/// UUID format (8-4-4-4-12 hex chars). The x.ai API rejects non-UUID strings
+/// with 400 "Invalid uuid." so we check the same shape client-side to give
+/// faster feedback in the Add Provider modal.
+fn validate_team_id(s: &str) -> Result<(), &'static str> {
+    let s = s.trim();
+    let bytes = s.as_bytes();
+    if bytes.len() != 36 {
+        return Err("Team ID must be a UUID (e.g. ccd583cc-8608-4f5b-8e0b-540038e6755d).");
+    }
+    for (i, &b) in bytes.iter().enumerate() {
+        let is_dash = matches!(i, 8 | 13 | 18 | 23);
+        if is_dash {
+            if b != b'-' {
+                return Err("Team ID must be a UUID with dashes at positions 9, 14, 19, 24.");
+            }
+        } else if !b.is_ascii_hexdigit() {
+            return Err("Team ID must be a UUID containing only hex digits and dashes.");
+        }
+    }
+    Ok(())
+}
 
 // ---------------------------------------------------------------------------
 // Provider struct
@@ -64,8 +81,15 @@ pub struct XaiProvider {
 }
 
 impl XaiProvider {
-    pub fn new(creds: impl Fn() -> Result<Zeroizing<String>> + Send + Sync + 'static) -> Self {
-        Self::with_base_url(BASE_URL, DEV_TEAM_ID, creds)
+    /// Constructs a provider for the given team. `team_id` should already be
+    /// validated against `validate_team_id` at the application boundary; the
+    /// constructor itself does not re-validate (an invalid value will simply
+    /// produce a 400/404 response at request time).
+    pub fn new(
+        creds: impl Fn() -> Result<Zeroizing<String>> + Send + Sync + 'static,
+        team_id: &str,
+    ) -> Self {
+        Self::with_base_url(BASE_URL, team_id, creds)
     }
 
     pub fn with_base_url(
@@ -73,16 +97,11 @@ impl XaiProvider {
         team_id: &str,
         creds: impl Fn() -> Result<Zeroizing<String>> + Send + Sync + 'static,
     ) -> Self {
+        let (client, validate_client) = build_clients("x.ai");
         Self {
             creds: Box::new(creds),
-            client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(30))
-                .build()
-                .expect("failed to build x.ai HTTP client"),
-            validate_client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(VALIDATE_TIMEOUT_SECS))
-                .build()
-                .expect("failed to build x.ai validation HTTP client"),
+            client,
+            validate_client,
             base_url: base_url.to_string(),
             team_id: team_id.to_string(),
         }
@@ -165,12 +184,20 @@ pub struct MonthlySpend {
 // ProviderDescriptor
 // ---------------------------------------------------------------------------
 
-fn build(creds: CredsAccessor) -> Box<dyn Provider> {
-    Box::new(XaiProvider::new(creds))
+/// Placeholder team_id used when the descriptor is invoked without an aux
+/// value. Any HTTP call made through such a provider will return a 400
+/// "Invalid uuid." or 404 "Team not found." — surfaced to the user as a
+/// configuration error. We never silently substitute a real team_id.
+const MISSING_TEAM_ID_SENTINEL: &str = "00000000-0000-0000-0000-000000000000";
+
+fn build(creds: CredsAccessor, aux: Option<&str>) -> Box<dyn Provider> {
+    let team_id = aux.unwrap_or(MISSING_TEAM_ID_SENTINEL);
+    Box::new(XaiProvider::new(creds, team_id))
 }
 
-fn build_with_key(key: Zeroizing<String>) -> Box<dyn Provider> {
-    Box::new(XaiProvider::new(move || Ok(key.clone())))
+fn build_with_key(key: Zeroizing<String>, aux: Option<&str>) -> Box<dyn Provider> {
+    let team_id = aux.unwrap_or(MISSING_TEAM_ID_SENTINEL).to_string();
+    Box::new(XaiProvider::new(move || Ok(key.clone()), &team_id))
 }
 
 pub const DESCRIPTOR: ProviderDescriptor = ProviderDescriptor {
@@ -182,6 +209,12 @@ pub const DESCRIPTOR: ProviderDescriptor = ProviderDescriptor {
     key_label: "Management Key",
     key_is_secret: true,
     key_required: true,
+    aux_field_label: Some("Team ID"),
+    aux_field_hint: Some(
+        "Find your team UUID at console.x.ai → Team Settings → it's also in \
+         the URL of your team dashboard.",
+    ),
+    aux_field_validator: Some(validate_team_id),
     build,
     build_with_key,
 };

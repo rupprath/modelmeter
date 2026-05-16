@@ -77,6 +77,11 @@ impl Database {
 
         // Normal path: new database or already-encrypted database.
         // PRAGMA key must be the very first SQL operation on the connection.
+        //
+        // String interpolation looks like a SQL-injection footgun but is safe
+        // here: SQLCipher does not allow PRAGMA key to be parameterised, and
+        // `db_key` is a 64-char lowercase hex string from the OS CSPRNG (see
+        // secrets::generate_db_key), so no quote character can appear in it.
         let conn = Connection::open(&path)
             .with_context(|| format!("failed to open database at {}", path.display()))?;
         conn.execute_batch(&format!("PRAGMA key = '{}';", db_key.as_str()))

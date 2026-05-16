@@ -97,18 +97,23 @@ function AddProviderModal({
   const [providerType, setProviderType] = useState<string>(providerKinds[0]?.slug ?? "");
   const [displayName, setDisplayName] = useState("");
   const [key, setKey] = useState("");
+  const [auxValue, setAuxValue] = useState("");
   const [validation, setValidation] = useState<ValidationState>({ kind: "idle" });
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedKind = providerKinds.find((k) => k.slug === providerType);
   const keyRequired = selectedKind?.key_required ?? true;
+  const auxLabel = selectedKind?.aux_field_label ?? null;
+  const auxHint = selectedKind?.aux_field_hint ?? null;
+  const auxRequired = auxLabel !== null;
+  const auxForBackend = auxRequired ? auxValue.trim() : null;
 
   // For providers that need no key, auto-validate as soon as the type is selected.
   useEffect(() => {
-    if (!keyRequired) {
+    if (!keyRequired && !auxRequired) {
       setValidation({ kind: "validating" });
-      validateProviderKey(providerType, "")
+      validateProviderKey(providerType, "", null)
         .then((result) => {
           if (result.status === "valid") {
             setValidation({ kind: "valid" });
@@ -121,12 +126,17 @@ function AddProviderModal({
         .catch((e) => setValidation({ kind: "invalid", reason: tauriErrMsg(e) }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [providerType, keyRequired]);
+  }, [providerType, keyRequired, auxRequired]);
 
-  const canValidate = keyRequired && key.trim().length > 0 && validation.kind !== "validating";
+  const canValidate =
+    keyRequired &&
+    key.trim().length > 0 &&
+    (!auxRequired || auxValue.trim().length > 0) &&
+    validation.kind !== "validating";
   const canAdd =
     displayName.trim().length > 0 &&
     (!keyRequired || key.trim().length > 0) &&
+    (!auxRequired || auxValue.trim().length > 0) &&
     validation.kind === "valid" &&
     !adding;
 
@@ -134,7 +144,7 @@ function AddProviderModal({
     setValidation({ kind: "validating" });
     setError(null);
     try {
-      const result = await validateProviderKey(providerType, key.trim());
+      const result = await validateProviderKey(providerType, key.trim(), auxForBackend);
       if (result.status === "valid") {
         setValidation({ kind: "valid" });
       } else if (result.status === "invalid") {
@@ -156,7 +166,7 @@ function AddProviderModal({
     setAdding(true);
     setError(null);
     try {
-      await addProvider(providerType, displayName.trim(), key.trim());
+      await addProvider(providerType, displayName.trim(), key.trim(), auxForBackend);
       onAdded();
       onClose();
     } catch (e) {
@@ -200,6 +210,7 @@ function AddProviderModal({
             onChange={(e) => {
               setProviderType(e.target.value);
               setKey("");
+              setAuxValue("");
               resetValidation();
             }}
             style={{ height: 30, fontSize: 12, appearance: "auto" }}
@@ -233,15 +244,35 @@ function AddProviderModal({
             <label style={{ fontSize: 11, color: "var(--mm-text-3)", fontWeight: 500 }}>
               {selectedKind?.key_label ?? "API key"}
             </label>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input
-                className="mm-input"
-                type={selectedKind?.key_is_secret ? "password" : "text"}
-                placeholder="sk-..."
-                value={key}
-                onChange={(e) => { setKey(e.target.value); resetValidation(); }}
-                style={{ flex: 1, height: 30, fontSize: 12 }}
-              />
+            <input
+              className="mm-input"
+              type={selectedKind?.key_is_secret ? "password" : "text"}
+              placeholder="sk-..."
+              value={key}
+              onChange={(e) => { setKey(e.target.value); resetValidation(); }}
+              style={{ height: 30, fontSize: 12 }}
+            />
+            {auxLabel && (
+              <>
+                <label style={{ fontSize: 11, color: "var(--mm-text-3)", fontWeight: 500, marginTop: 4 }}>
+                  {auxLabel}
+                </label>
+                <input
+                  className="mm-input"
+                  type="text"
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                  value={auxValue}
+                  onChange={(e) => { setAuxValue(e.target.value); resetValidation(); }}
+                  style={{ height: 30, fontSize: 12, fontFamily: "var(--mm-font-mono)" }}
+                />
+                {auxHint && (
+                  <div style={{ fontSize: 10.5, color: "var(--mm-text-4)", lineHeight: 1.4 }}>
+                    {auxHint}
+                  </div>
+                )}
+              </>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
               <button
                 className="mm-btn ghost"
                 style={{ height: 30, whiteSpace: "nowrap", fontSize: 11 }}

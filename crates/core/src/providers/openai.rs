@@ -12,7 +12,7 @@ use serde::Deserialize;
 use tracing::{debug, warn};
 
 use super::{
-    check_status, map_reqwest_err, resolve_creds, unix_now, Balance,
+    build_clients, check_status, map_reqwest_err, resolve_creds, unix_now, Balance,
     BalanceShape, BoxFuture, BucketGranularity, CostSource, CredsAccessor, InvalidReason,
     KeyValidation, Provider, ProviderDescriptor, ProviderError, TimeRange,
     UsageRecord,
@@ -20,7 +20,6 @@ use super::{
 use zeroize::Zeroizing;
 
 const BASE_URL: &str = "https://api.openai.com";
-const VALIDATE_TIMEOUT_SECS: u64 = 10;
 const MAX_RESPONSE_BYTES: usize = 10 * 1024 * 1024; // 10 MiB
 
 // ---------------------------------------------------------------------------
@@ -46,16 +45,11 @@ impl OpenAiProvider {
         base_url: &str,
         creds: impl Fn() -> Result<Zeroizing<String>> + Send + Sync + 'static,
     ) -> Self {
+        let (client, validate_client) = build_clients("OpenAI");
         Self {
             creds: Box::new(creds),
-            client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(30))
-                .build()
-                .expect("failed to build OpenAI HTTP client"),
-            validate_client: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(VALIDATE_TIMEOUT_SECS))
-                .build()
-                .expect("failed to build OpenAI validation HTTP client"),
+            client,
+            validate_client,
             base_url: base_url.to_string(),
         }
     }
@@ -69,11 +63,11 @@ impl OpenAiProvider {
 // ProviderDescriptor
 // ---------------------------------------------------------------------------
 
-fn build(creds: CredsAccessor) -> Box<dyn Provider> {
+fn build(creds: CredsAccessor, _aux: Option<&str>) -> Box<dyn Provider> {
     Box::new(OpenAiProvider::new(creds))
 }
 
-fn build_with_key(key: Zeroizing<String>) -> Box<dyn Provider> {
+fn build_with_key(key: Zeroizing<String>, _aux: Option<&str>) -> Box<dyn Provider> {
     Box::new(OpenAiProvider::new(move || Ok(key.clone())))
 }
 
@@ -86,6 +80,9 @@ pub const DESCRIPTOR: ProviderDescriptor = ProviderDescriptor {
     key_label: "API key",
     key_is_secret: true,
     key_required: true,
+    aux_field_label: None,
+    aux_field_hint: None,
+    aux_field_validator: None,
     build,
     build_with_key,
 };

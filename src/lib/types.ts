@@ -14,6 +14,10 @@ export interface ProviderKindMeta {
   key_is_secret: boolean;
   /** Whether the user must supply a credential to add this provider. */
   key_required: boolean;
+  /** Label for the optional second input some providers need (e.g. x.ai's Team ID). */
+  aux_field_label: string | null;
+  /** Hint shown below the aux input describing where to find the value. */
+  aux_field_hint: string | null;
 }
 
 // ── Claude Code plan usage ─────────────────────────────────────────────────
@@ -47,6 +51,8 @@ export interface Provider {
   last_sync_succeeded_at: number | null;
   last_sync_status: string; // "ok" | "failed" | "never"
   created_at: number;
+  /** Optional auxiliary identifier (currently only x.ai's team UUID). */
+  team_id: string | null;
 }
 
 // Discriminated union matching the Rust #[serde(tag = "status")] enum.

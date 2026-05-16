@@ -1,7 +1,7 @@
 //! Live end-to-end smoke test for the x.ai provider.
 //!
-//! Skipped unless the `XAI_MGMT_KEY` env var is set, so CI won't try to run it.
-//! Hits the real x.ai management API.
+//! Skipped unless both `XAI_MGMT_KEY` and `XAI_TEAM_ID` env vars are set, so
+//! CI won't try to run it. Hits the real x.ai management API.
 
 use modelmeter_core::providers::{xai::XaiProvider, KeyValidation, Provider};
 use std::sync::Arc;
@@ -13,9 +13,13 @@ async fn live_validate_and_fetch_balance() {
         eprintln!("XAI_MGMT_KEY not set — skipping live test");
         return;
     };
+    let Ok(team_id) = std::env::var("XAI_TEAM_ID") else {
+        eprintln!("XAI_TEAM_ID not set — skipping live test");
+        return;
+    };
     let key = Arc::new(Zeroizing::new(key));
     let key_for_validate = key.clone();
-    let provider = XaiProvider::new(move || Ok((*key_for_validate).clone()));
+    let provider = XaiProvider::new(move || Ok((*key_for_validate).clone()), &team_id);
 
     let validation = provider
         .validate_credential()
@@ -39,7 +43,7 @@ async fn live_validate_and_fetch_balance() {
 
     // Also exercise the new monthly-history path.
     let key_for_history = key.clone();
-    let history_provider = XaiProvider::new(move || Ok((*key_for_history).clone()));
+    let history_provider = XaiProvider::new(move || Ok((*key_for_history).clone()), &team_id);
     let history = history_provider
         .fetch_monthly_history(6)
         .await

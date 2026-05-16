@@ -168,7 +168,7 @@ If any of these providers add a REST balance endpoint, please open an issue.
 
 ### Option 1 — Download the pre-built binary (recommended)
 
-**[Download ModelMeter v1.2 for Windows (.exe)](https://github.com/rupprath/modelmeter/releases/download/v1.2/modelmeter.exe)**
+**[Download ModelMeter v1.3 for Windows (.exe)](https://github.com/rupprath/modelmeter/releases/download/v1.3/modelmeter.exe)**
 
 Or browse all releases on the [Releases page](https://github.com/rupprath/modelmeter/releases). No installer, no runtime dependencies, no admin rights required.
 

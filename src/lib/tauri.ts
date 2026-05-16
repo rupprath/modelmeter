@@ -31,8 +31,9 @@ export const addProvider = (
   providerType: string,
   displayName: string,
   key: string,
+  auxValue: string | null,
 ): Promise<number> =>
-  invoke("add_provider", { providerType, displayName, key });
+  invoke("add_provider", { providerType, displayName, key, auxValue });
 
 export const removeProvider = (id: number): Promise<boolean> =>
   invoke("remove_provider", { id });
@@ -40,8 +41,9 @@ export const removeProvider = (id: number): Promise<boolean> =>
 export const validateProviderKey = (
   providerType: string,
   key: string,
+  auxValue: string | null,
 ): Promise<KeyValidation> =>
-  invoke("validate_provider_key", { providerType, key });
+  invoke("validate_provider_key", { providerType, key, auxValue });
 
 // ── Widget query commands ──────────────────────────────────────────────────
 

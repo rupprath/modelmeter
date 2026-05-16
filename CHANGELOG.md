@@ -5,6 +5,41 @@ All notable changes to ModelMeter will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-05-15
+
+### Added
+- **x.ai (Grok): Team ID input field** on the Add Provider modal. Previous releases
+  embedded the developer's team UUID, which silently routed every other user's
+  card at the developer's account. The Team ID is now required at provider
+  creation, validated as a UUID, stored alongside the provider row, and used
+  to address all x.ai management-api endpoints. Existing x.ai provider rows
+  from an older install must be removed and re-added through the UI.
+
+### Changed
+- Shared `build_clients()` helper in `providers/mod.rs` replaces four identical
+  `reqwest::Client::builder()` blocks across the OpenAI, Anthropic, x.ai, and
+  ElevenLabs providers.
+- `unix_now()` and `prune_old_records` no longer panic when the system clock
+  is set before the UNIX epoch; they return `0` and continue.
+- `check_status` caps the error-response body at 4 KiB before formatting it
+  into `ClientError.detail`, defending against a hostile or misconfigured
+  endpoint streaming an unbounded body.
+- ElevenLabs card on the Dashboard hoists its `Intl.NumberFormat` to module
+  scope instead of constructing four formatters per render.
+- `PRAGMA key` interpolation in `db::open()` now has an inline comment
+  explaining why it is safe (key is 64-char hex from `getrandom`, SQLCipher
+  doesn't allow parameter binding for `PRAGMA key`).
+
+### Fixed
+- Dashboard's 90-day `Promise.all` over `getUsageSummary` no longer drops the
+  entire provider's chart to `[]` when a single day's fetch fails; each daily
+  fetch now catches its own error and degrades to a zero bar.
+- GeneralSettings now clears the "Saved" toast timer if the component
+  unmounts while the toast is still showing.
+
+### Database
+- Migration 7: adds a nullable `team_id` column to the `providers` table.
+
 ## [1.0.0] - 2026-05-03
 
 ### Added
@@ -63,4 +98,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 17 frontend smoke tests with Vitest and `@testing-library/react` covering the setup wizard, dashboard, and settings pages.
 - Performance budget verified: `get_usage_summary` over 10 000 records completes in under 200 ms.
 
+[1.3.0]: https://github.com/rupprath/modelmeter/releases/tag/v1.3
 [1.0.0]: https://github.com/rupprath/modelmeter/releases/tag/v1.0.0

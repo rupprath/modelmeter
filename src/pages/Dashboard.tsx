@@ -15,6 +15,10 @@ interface ProviderData {
   balance: number | null;
 }
 
+// Integer formatter shared by the ElevenLabs card's credit readouts.
+// Defined once at module scope so the formatter object is reused across renders.
+const CREDIT_INT_FORMAT = new Intl.NumberFormat();
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 function nowSec() {
@@ -310,7 +314,7 @@ function ElevenLabsCard({
         </div>
         <div className="sv-head-totals">
           <div className="sv-totals-amount mm-num">
-            {new Intl.NumberFormat().format(Math.round(total))}
+            {CREDIT_INT_FORMAT.format(Math.round(total))}
           </div>
           <div className="sv-totals-period">{period}d credits</div>
         </div>
@@ -325,15 +329,15 @@ function ElevenLabsCard({
       <div className="sv-card-foot">
         <div className="sv-stat">
           <div className="sv-stat-label">Remaining</div>
-          <div className="sv-stat-val mm-num">{new Intl.NumberFormat().format(remaining)} cr</div>
+          <div className="sv-stat-val mm-num">{CREDIT_INT_FORMAT.format(remaining)} cr</div>
         </div>
         <div className="sv-stat">
           <div className="sv-stat-label">Avg / day</div>
-          <div className="sv-stat-val mm-num">{new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Math.round(avgDay))} cr</div>
+          <div className="sv-stat-val mm-num">{CREDIT_INT_FORMAT.format(Math.round(avgDay))} cr</div>
         </div>
         <div className="sv-stat">
           <div className="sv-stat-label">Last 24 h</div>
-          <div className="sv-stat-val mm-num">{new Intl.NumberFormat().format(last24h)} cr</div>
+          <div className="sv-stat-val mm-num">{CREDIT_INT_FORMAT.format(last24h)} cr</div>
         </div>
         {state && state.current_overage_usd > 0 && (
           <div className="sv-stat">
@@ -565,9 +569,14 @@ function monthsBackForPeriod(period: Period): number {
 }
 
 async function fetchProviderData(provider: Provider): Promise<ProviderData> {
+  // Each daily fetch swallows its own failure (returns 0) so one transient
+  // error in any of MAX_DAYS calls degrades to a single zero bar instead of
+  // blanking the whole provider via Promise.all's all-or-nothing semantics.
   const dailyPromises = Array.from({ length: MAX_DAYS }, (_, i) => {
     const { since, until } = dayBoundaries(MAX_DAYS - 1 - i);
-    return getUsageSummary(provider.id, since, until).then((s) => s?.total_cost_usd ?? 0);
+    return getUsageSummary(provider.id, since, until)
+      .then((s) => s?.total_cost_usd ?? 0)
+      .catch(() => 0);
   });
 
   const [dailyValues, balanceResult] = await Promise.all([

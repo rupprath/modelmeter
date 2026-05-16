@@ -54,15 +54,18 @@ pub struct DayCredits {
 
 /// Inserts a new provider row and returns the new `id`.
 /// Fails if a provider of the same type already exists (UNIQUE constraint).
+/// `team_id` is an optional auxiliary identifier — currently only x.ai uses it.
 pub fn create_provider(
     conn: &Connection,
     provider_type: &str,
     display_name: &str,
+    team_id: Option<&str>,
     created_at: i64,
 ) -> Result<i64> {
     conn.execute(
-        "INSERT INTO providers (provider_type, display_name, created_at) VALUES (?1, ?2, ?3)",
-        params![provider_type, display_name, created_at],
+        "INSERT INTO providers (provider_type, display_name, team_id, created_at)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![provider_type, display_name, team_id, created_at],
     )
     .context("insert provider")?;
     Ok(conn.last_insert_rowid())
@@ -75,7 +78,7 @@ pub fn list_providers(conn: &Connection) -> Result<Vec<ProviderRow>> {
             "SELECT id, provider_type,
                     display_name,
                     last_sync_attempted_at, last_sync_succeeded_at,
-                    last_sync_status, created_at
+                    last_sync_status, created_at, team_id
              FROM providers
              ORDER BY created_at ASC",
         )
@@ -90,6 +93,7 @@ pub fn list_providers(conn: &Connection) -> Result<Vec<ProviderRow>> {
                 last_sync_succeeded_at: row.get(4)?,
                 last_sync_status: row.get(5)?,
                 created_at: row.get(6)?,
+                team_id: row.get(7)?,
             })
         })
         .context("query list_providers")?;
@@ -103,7 +107,7 @@ pub fn get_provider(conn: &Connection, id: i64) -> Result<Option<ProviderRow>> {
             "SELECT id, provider_type,
                     display_name,
                     last_sync_attempted_at, last_sync_succeeded_at,
-                    last_sync_status, created_at
+                    last_sync_status, created_at, team_id
              FROM providers WHERE id = ?1",
         )
         .context("prepare get_provider")?;
@@ -117,6 +121,7 @@ pub fn get_provider(conn: &Connection, id: i64) -> Result<Option<ProviderRow>> {
                 last_sync_succeeded_at: row.get(4)?,
                 last_sync_status: row.get(5)?,
                 created_at: row.get(6)?,
+                team_id: row.get(7)?,
             })
         })
         .context("query get_provider")?;
@@ -227,10 +232,12 @@ pub fn update_provider_sync_status(
 ///
 /// Returns the total number of rows deleted.
 pub fn prune_old_records(conn: &Connection, max_days: u32, max_size_mb: u64) -> Result<usize> {
+    // See providers::unix_now for why we fall back to 0 on a bogus clock
+    // rather than panicking.
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .expect("system clock before UNIX epoch")
-        .as_secs() as i64;
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
     let cutoff = now - (max_days as i64) * 86_400;
 
     let time_deleted = conn
@@ -462,7 +469,7 @@ mod tests {
     fn create_and_list_providers() {
         let db = setup();
         let id = db
-            .with_conn(|c| create_provider(c, "openai", "OpenAI", 1_000_000))
+            .with_conn(|c| create_provider(c, "openai", "OpenAI", None, 1_000_000))
             .unwrap();
         assert!(id > 0);
         let providers = db.with_conn(list_providers).unwrap();
@@ -482,7 +489,7 @@ mod tests {
     fn delete_provider_returns_true_on_success() {
         let db = setup();
         let id = db
-            .with_conn(|c| create_provider(c, "openai", "OpenAI", 1_000))
+            .with_conn(|c| create_provider(c, "openai", "OpenAI", None, 1_000))
             .unwrap();
         assert!(db.with_conn(|c| delete_provider(c, id)).unwrap());
         assert!(!db.with_conn(|c| delete_provider(c, id)).unwrap());
@@ -491,8 +498,8 @@ mod tests {
     #[test]
     fn provider_type_must_be_unique() {
         let db = setup();
-        db.with_conn(|c| create_provider(c, "openai", "OpenAI", 1_000)).unwrap();
-        let result = db.with_conn(|c| create_provider(c, "openai", "OpenAI 2", 2_000));
+        db.with_conn(|c| create_provider(c, "openai", "OpenAI", None, 1_000)).unwrap();
+        let result = db.with_conn(|c| create_provider(c, "openai", "OpenAI 2", None, 2_000));
         assert!(result.is_err(), "duplicate provider_type should fail");
     }
 
@@ -502,7 +509,7 @@ mod tests {
     fn upsert_replaces_on_conflict() {
         let db = setup();
         let pid = db
-            .with_conn(|c| create_provider(c, "openai", "OpenAI", 1_000))
+            .with_conn(|c| create_provider(c, "openai", "OpenAI", None, 1_000))
             .unwrap();
 
         let mut r = make_record(pid);
@@ -520,7 +527,7 @@ mod tests {
     fn insert_balance_and_get_latest() {
         let db = setup();
         let pid = db
-            .with_conn(|c| create_provider(c, "openai", "OpenAI", 1_000))
+            .with_conn(|c| create_provider(c, "openai", "OpenAI", None, 1_000))
             .unwrap();
 
         let bal = Balance {
@@ -540,7 +547,7 @@ mod tests {
     fn update_provider_sync_status_sets_fields() {
         let db = setup();
         let pid = db
-            .with_conn(|c| create_provider(c, "openai", "OpenAI", 1_000))
+            .with_conn(|c| create_provider(c, "openai", "OpenAI", None, 1_000))
             .unwrap();
 
         db.with_conn(|c| update_provider_sync_status(c, pid, 9_000, Some(9_001), "ok"))
@@ -558,7 +565,7 @@ mod tests {
     fn usage_summary_aggregates_correctly() {
         let db = setup();
         let pid = db
-            .with_conn(|c| create_provider(c, "openai", "OpenAI", 1_000))
+            .with_conn(|c| create_provider(c, "openai", "OpenAI", None, 1_000))
             .unwrap();
 
         let mut r1 = make_record(pid);
@@ -588,7 +595,7 @@ mod tests {
     fn with_transaction_commits_on_success() {
         let db = setup();
         db.with_transaction(|tx| {
-            create_provider(tx, "openai", "OpenAI", 1_000)
+            create_provider(tx, "openai", "OpenAI", None, 1_000)
         })
         .unwrap();
 
@@ -604,7 +611,7 @@ mod tests {
     fn with_transaction_rolls_back_on_error() {
         let db = setup();
         let _ = db.with_transaction(|tx| -> Result<()> {
-            create_provider(tx, "openai", "OpenAI", 1_000)?;
+            create_provider(tx, "openai", "OpenAI", None, 1_000)?;
             anyhow::bail!("forced error");
         });
 
@@ -626,7 +633,7 @@ mod tests {
             .iter()
             .enumerate()
             .map(|(i, &slug)| {
-                db.with_conn(|c| create_provider(c, slug, "P", i as i64 * 1000))
+                db.with_conn(|c| create_provider(c, slug, "P", None, i as i64 * 1000))
                     .unwrap()
             })
             .collect();
