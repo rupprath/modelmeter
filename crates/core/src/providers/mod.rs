@@ -17,6 +17,7 @@
 
 pub mod anthropic;
 pub mod claude_code;
+pub mod elevenlabs;
 pub mod openai;
 pub mod xai;
 
@@ -373,6 +374,7 @@ pub static REGISTRY: &[ProviderDescriptor] = &[
     anthropic::DESCRIPTOR,
     claude_code::DESCRIPTOR,
     xai::DESCRIPTOR,
+    elevenlabs::DESCRIPTOR,
 ];
 
 // ---------------------------------------------------------------------------

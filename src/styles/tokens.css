@@ -41,6 +41,7 @@
   --mm-prov-claude_code: #cc785c;
   --mm-prov-google: #4285f4;
   --mm-prov-xai: #52525b;
+  --mm-prov-elevenlabs: #7c3aed;
 
   /* Accent */
   --mm-accent: #4f7cff;
@@ -167,6 +168,7 @@
 .mm-prov-mark.claude_code { background: var(--mm-prov-claude_code); }
 .mm-prov-mark.google      { background: var(--mm-prov-google); }
 .mm-prov-mark.xai         { background: var(--mm-prov-xai); }
+.mm-prov-mark.elevenlabs  { background: var(--mm-prov-elevenlabs); }
 
 /* Button */
 .mm-btn {

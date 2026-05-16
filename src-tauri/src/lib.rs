@@ -14,6 +14,7 @@ use modelmeter_core::{
 
 use commands::{
     claude_code::{get_cached_claude_code_result, get_claude_code_plan_usage},
+    elevenlabs::get_elevenlabs_state,
     providers::{
         add_provider, list_provider_kinds, list_providers, remove_provider, validate_provider_key,
     },
@@ -191,6 +192,8 @@ pub fn run() {
             get_cached_claude_code_result,
             // x.ai monthly invoice history
             get_xai_monthly_history,
+            // ElevenLabs subscription + daily credits
+            get_elevenlabs_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

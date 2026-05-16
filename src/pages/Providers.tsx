@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Server, Plus, Trash2, CheckCircle, XCircle, Loader } from "lucide-react";
+import { Server, Plus, Trash2, CheckCircle, XCircle, Loader, ShieldCheck } from "lucide-react";
 import { Toolbar } from "../components/layout/Toolbar";
 import { addProvider, removeProvider, validateProviderKey } from "../lib/tauri";
 import { type Provider, type ProviderKindMeta, type SyncStatus } from "../lib/types";
@@ -17,6 +17,64 @@ function tauriErrMsg(e: unknown): string {
   if (typeof e === "string") return e;
   if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
   return JSON.stringify(e);
+}
+
+// ── Per-provider setup instructions ────────────────────────────────────────
+//
+// Some providers expose a fine-grained permission system at key-creation time
+// (currently: ElevenLabs). For those, we show an inline panel before the key
+// input explaining the minimum scope they should grant, so the user creates a
+// truly read-only key on the first try. Where the provider doesn't support
+// scope restriction (OpenAI's read-only admin keys are configured similarly
+// but their UI is already self-explanatory), no panel is shown.
+
+function ProviderSetupNotice({ slug }: { slug: string }) {
+  if (slug === "elevenlabs") {
+    return (
+      <div
+        style={{
+          display: "flex",
+          gap: 9,
+          padding: "10px 11px",
+          borderRadius: 6,
+          background: "var(--mm-accent-soft)",
+          border: "1px solid color-mix(in srgb, var(--mm-accent) 30%, transparent)",
+          fontSize: 11,
+          lineHeight: 1.45,
+          color: "var(--mm-text-2)",
+        }}
+      >
+        <ShieldCheck size={14} style={{ flexShrink: 0, marginTop: 1, color: "var(--mm-accent)" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, color: "var(--mm-text)" }}>
+            Use a read-only key
+          </div>
+          <div>
+            ElevenLabs lets you scope each API key when you create it. ModelMeter only ever reads
+            your subscription quota — it never generates audio or writes anything. Please scope the
+            key narrowly so a leak cannot spend your credits or modify your account.
+          </div>
+          <div>
+            When creating the key on{" "}
+            <span style={{ color: "var(--mm-accent)", fontWeight: 500 }}>
+              elevenlabs.io → Profile → API keys
+            </span>
+            :
+          </div>
+          <ol style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
+            <li>Set <strong>User → Read</strong> to Access</li>
+            <li>Set <strong>every other permission group to No Access</strong> — including Text-to-Speech, Voices, Models, Workspace, etc.</li>
+            <li>Save and paste the resulting <code style={{ fontFamily: "var(--mm-font-mono)", fontSize: 10.5 }}>sk_…</code> key below</li>
+          </ol>
+          <div style={{ color: "var(--mm-text-3)", fontStyle: "italic" }}>
+            If validation fails with "insufficient permission," recreate the key and double-check
+            that User → Read is enabled. A key without that scope cannot read your subscription.
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
 }
 
 // ── Add provider modal ─────────────────────────────────────────────────────
@@ -167,6 +225,8 @@ function AddProviderModal({
             style={{ height: 30, fontSize: 12 }}
           />
         </div>
+
+        <ProviderSetupNotice slug={providerType} />
 
         {keyRequired ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

@@ -8,12 +8,15 @@ ModelMeter polls each provider's usage and billing endpoints on a configurable s
 
 ## Supported providers
 
-| Provider | Status | Auth method |
-|---|---|---|
-| OpenAI | v1 | Admin API key |
-| Anthropic | v1 | Admin API key |
-| Claude (Claude Code) | v1 | Claude Code OAuth — no API key required |
-| x.ai (Grok) | v1 | Read-only Management Key (`xai-token-…`) |
+| Provider | Status | Native unit | Auth method |
+|---|---|---|---|
+| OpenAI | v1 | USD | Admin API key |
+| Anthropic | v1 | USD | Admin API key |
+| Claude (Claude Code) | v1 | % quota | Claude Code OAuth — no API key required |
+| x.ai (Grok) | v1 | USD | Read-only Management Key (`xai-token-…`) |
+| ElevenLabs | v1 | credits | Read-only API key (`sk_…`, User: Read scope only) |
+
+ModelMeter groups providers by native unit on the dashboard. Dollar-denominated providers (OpenAI, Anthropic, x.ai) appear under **API providers** and contribute to the aggregate spend chart. Plan-based providers (Claude Code, ElevenLabs) appear under **Plan-based** and are shown in their native unit — quota percentages for Claude Code, credits for ElevenLabs.
 
 ## Setting up Claude (Claude Code)
 
@@ -69,6 +72,24 @@ Anthropic uses Admin API keys (`sk-ant-admin-…` prefix), available only on org
 
 Create one at: https://console.anthropic.com/settings/admin-keys
 
+### ElevenLabs
+
+ElevenLabs reports usage in **credits**, not dollars. Their per-credit dollar value varies across plans (Creator / Pro / Scale / Business / annual / promotional / enterprise) and is not exposed in an API-stable way that we can trust. The dashboard therefore shows credits consumed, credits remaining in the current period, and the daily credit chart in native units — no fabricated dollar conversion. If overage is currently being charged against your account, it appears as a real USD figure next to the credit totals.
+
+**Read-only keys are strongly recommended and fully supported.** Unlike OpenAI and Anthropic, ElevenLabs lets you scope a key to specific permission groups when you create it. ModelMeter only needs `User: Read` — every other group can be set to "No Access," including Text-to-Speech. A key scoped this narrowly cannot generate audio, cannot modify your account, cannot rotate other keys; the worst a leak can do is disclose your quota usage.
+
+**Generating the key:**
+
+1. Open [elevenlabs.io](https://elevenlabs.io/app/settings/api-keys) → your profile → **API keys**
+2. Click **Create New**
+3. Set **every** endpoint permission group to **No Access**, except **User → Read**
+   - Critically: Text-to-Speech, Speech-to-Speech, Speech-to-Text, Voices (write), Models, and every other group should be **No Access**
+4. Name the key something memorable (e.g. "ModelMeter — read-only") and create it
+5. Copy the key — it starts with `sk_` and is shown only once
+6. Paste it into the **API Key** field in ModelMeter's Add Provider modal
+
+If you paste a key with a different prefix or a key that lacks User: Read, ModelMeter detects the mismatch during validation and shows you the specific scope to enable.
+
 ### x.ai (Grok)
 
 x.ai has two distinct kinds of API key, and ModelMeter needs the second one:
@@ -118,12 +139,6 @@ The only programmatic path Google provides is [BigQuery billing export](https://
 
 We are watching for Google to release a direct cost API. If they do, adding Gemini support will be straightforward.
 
-### ElevenLabs
-
-ElevenLabs has a balance REST endpoint (`GET /v1/user/subscription`) that works correctly, but they do not offer pay-as-you-go billing. Their plans are monthly subscriptions starting at $6 per month with no refund for cancellations mid-cycle, which conflicts with ModelMeter's "spend a little once and stop" design goal.
-
-We will add support when ElevenLabs offers one-time credit purchases.
-
 ## Providers we cannot support at this time
 
 These providers were researched but do not currently expose programmatic access to balance or billing data. They cannot be added to ModelMeter until they ship a REST balance endpoint.
@@ -153,7 +168,7 @@ If any of these providers add a REST balance endpoint, please open an issue.
 
 ### Option 1 — Download the pre-built binary (recommended)
 
-**[Download ModelMeter v1.1 for Windows (.exe)](https://github.com/rupprath/modelmeter/releases/download/v1.1/modelmeter.exe)**
+**[Download ModelMeter v1.2 for Windows (.exe)](https://github.com/rupprath/modelmeter/releases/download/v1.2/modelmeter.exe)**
 
 Or browse all releases on the [Releases page](https://github.com/rupprath/modelmeter/releases). No installer, no runtime dependencies, no admin rights required.
 
@@ -246,6 +261,7 @@ This is intentional: **we do not know how many people use this project, and we d
 | Your AI provider (OpenAI, Anthropic) | Your admin API key for that provider, over TLS | Each sync cycle, to fetch usage/billing data |
 | api.anthropic.com | OAuth access token already stored by Claude Code, over TLS | When the Claude provider refreshes, to fetch rate-limit usage |
 | management-api.x.ai | Your x.ai management key, over TLS | Each sync cycle, to fetch the prepaid balance |
+| api.elevenlabs.io | Your ElevenLabs API key (`sk_…`, read-only User scope), over TLS | Each sync cycle, to fetch subscription quota and daily credit usage |
 | Anywhere else | Nothing | Never |
 
 ### Key storage

@@ -16,6 +16,7 @@ import type {
   PlanUsageResult,
   CachedClaudeCodeResult,
   MonthlySpend,
+  ElevenLabsState,
 } from "./types";
 
 // ── Provider commands ──────────────────────────────────────────────────────
@@ -90,6 +91,15 @@ export const getCachedClaudeCodeResult = (): Promise<CachedClaudeCodeResult | nu
 
 export const getXaiMonthlyHistory = (providerId: number): Promise<MonthlySpend[]> =>
   invoke("get_xai_monthly_history", { providerId });
+
+// ── ElevenLabs subscription + daily credits ────────────────────────────────
+
+export const getElevenLabsState = (
+  providerId: number,
+  sinceTs: number,
+  untilTs: number,
+): Promise<ElevenLabsState> =>
+  invoke("get_elevenlabs_state", { providerId, sinceTs, untilTs });
 
 // ── Event listeners ────────────────────────────────────────────────────────
 

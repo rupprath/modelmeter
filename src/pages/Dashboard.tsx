@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type Provider, type SyncStatus, type Balance, type PlanUsageResult, type RateLimitWindow, type MonthlySpend } from "../lib/types";
-import { getLatestBalance, getUsageSummary, getClaudeCodePlanUsage, getCachedClaudeCodeResult, getXaiMonthlyHistory } from "../lib/tauri";
+import { type Provider, type SyncStatus, type Balance, type PlanUsageResult, type RateLimitWindow, type MonthlySpend, type ElevenLabsState } from "../lib/types";
+import { getLatestBalance, getUsageSummary, getClaudeCodePlanUsage, getCachedClaudeCodeResult, getXaiMonthlyHistory, getElevenLabsState } from "../lib/tauri";
 import { relativeTime, timeUntil } from "../lib/time";
 import { Money } from "../components/ui/Money";
 import { DailyBars } from "../components/ui/DailyBars";
@@ -232,6 +232,123 @@ function XaiCard({
         )}
         <SyncStatusPill provider={provider} />
       </div>
+    </div>
+  );
+}
+
+// ── ElevenLabs card (credit-denominated, plan-based) ──────────────────────
+//
+// ElevenLabs reports usage in credits, not dollars. Their fiat conversion
+// varies 2.5x across plans and is undocumented in the API, so the card stays
+// in native credits to avoid misrepresenting cost. See the
+// `feedback-native-unit-over-dollars` memory for the rationale.
+//
+// Sync flow: live-fetch /v1/user/subscription each render (cheap, mirrors the
+// xai card pattern) and read daily credits from the local DB over the period.
+// Zero days are not stored, so we zero-fill across the period for the chart.
+
+function ElevenLabsCard({
+  provider,
+  period,
+  syncLastTickAt,
+}: {
+  provider: Provider;
+  period: Period;
+  syncLastTickAt: number | null;
+}) {
+  const [state, setState] = useState<ElevenLabsState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const now = nowSec();
+    const since = now - period * 86400;
+    setLoading(true);
+    getElevenLabsState(provider.id, since, now)
+      .then((s) => { setState(s); setError(null); })
+      .catch((e) => setError(typeof e === "string" ? e : "Failed to load ElevenLabs state"))
+      .finally(() => setLoading(false));
+  }, [provider.id, period, syncLastTickAt]);
+
+  // Zero-fill daily credits across the period for the chart.
+  const dailySeries = useMemo<number[]>(() => {
+    const series = Array(period).fill(0) as number[];
+    if (!state) return series;
+    const now = nowSec();
+    const todayStart = Math.floor(now / 86400) * 86400;
+    for (const d of state.daily_credits) {
+      const dayStart = Math.floor(d.bucket_start / 86400) * 86400;
+      const daysAgo = Math.floor((todayStart - dayStart) / 86400);
+      const idx = period - 1 - daysAgo;
+      if (idx >= 0 && idx < period) series[idx] += d.credits;
+    }
+    return series;
+  }, [state, period]);
+
+  const total = dailySeries.reduce((s, v) => s + v, 0);
+  const avgDay = total / period;
+  const last24h = dailySeries[dailySeries.length - 1] ?? 0;
+  const remaining = state ? Math.max(0, state.character_limit - state.character_count) : 0;
+  const tint = `var(--mm-prov-${provider.provider_type})`;
+  const tierLabel = state?.tier ? state.tier.toUpperCase() : null;
+
+  return (
+    <div className="sv-card">
+      <div className="sv-card-head">
+        <span
+          className={`mm-prov-mark ${provider.provider_type}`}
+          style={{ width: 18, height: 18, fontSize: 10, borderRadius: 4 }}
+        >
+          E
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <div className="sv-card-name">{provider.display_name}</div>
+          <div className="sv-card-sub">
+            credit usage · last {period} days
+            {tierLabel && <span style={{ marginLeft: 6, color: "var(--mm-text-4)" }}>· {tierLabel}</span>}
+          </div>
+        </div>
+        <div className="sv-head-totals">
+          <div className="sv-totals-amount mm-num">
+            {new Intl.NumberFormat().format(Math.round(total))}
+          </div>
+          <div className="sv-totals-period">{period}d credits</div>
+        </div>
+      </div>
+
+      {loading && !state ? (
+        <div style={{ height: 84, animation: "mm-pulse 1.2s ease-in-out infinite", background: "var(--mm-surface-2)", borderRadius: 6 }} />
+      ) : (
+        <DailyBars data={dailySeries} color={tint} height={84} unit="credits" />
+      )}
+
+      <div className="sv-card-foot">
+        <div className="sv-stat">
+          <div className="sv-stat-label">Remaining</div>
+          <div className="sv-stat-val mm-num">{new Intl.NumberFormat().format(remaining)} cr</div>
+        </div>
+        <div className="sv-stat">
+          <div className="sv-stat-label">Avg / day</div>
+          <div className="sv-stat-val mm-num">{new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Math.round(avgDay))} cr</div>
+        </div>
+        <div className="sv-stat">
+          <div className="sv-stat-label">Last 24 h</div>
+          <div className="sv-stat-val mm-num">{new Intl.NumberFormat().format(last24h)} cr</div>
+        </div>
+        {state && state.current_overage_usd > 0 && (
+          <div className="sv-stat">
+            <div className="sv-stat-label">Overage</div>
+            <div className="sv-stat-val mm-num"><Money value={state.current_overage_usd} /></div>
+          </div>
+        )}
+        <SyncStatusPill provider={provider} />
+      </div>
+
+      {error && (
+        <div style={{ fontSize: 10.5, color: "var(--mm-warn)", marginTop: 6 }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }
@@ -490,9 +607,15 @@ export function Dashboard({ providers, syncStatus }: Props) {
     const id = setInterval(() => setTimeTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
-  // Split: claude_code is shown in its own card; everything else uses the regular data pipeline.
+  // Split: plan-based providers (claude_code, elevenlabs) have their own cards;
+  // everything else uses the regular data pipeline. Plan-based providers do
+  // not contribute to the aggregate $ chart because their native unit isn't USD.
   const claudeProvider = providers.find((p) => p.provider_type === "claude_code") ?? null;
-  const apiProviders = providers.filter((p) => p.provider_type !== "claude_code");
+  const elevenlabsProvider = providers.find((p) => p.provider_type === "elevenlabs") ?? null;
+  const apiProviders = providers.filter(
+    (p) => p.provider_type !== "claude_code" && p.provider_type !== "elevenlabs",
+  );
+  const planProviderCount = (claudeProvider ? 1 : 0) + (elevenlabsProvider ? 1 : 0);
   const xaiProvider = apiProviders.find((p) => p.provider_type === "xai") ?? null;
 
   useEffect(() => {
@@ -561,8 +684,8 @@ export function Dashboard({ providers, syncStatus }: Props) {
 
   return (
     <div className="sv-feed">
-      {/* Title row — only shown once data is ready */}
-      {!loading && apiProviderCount > 0 && (
+      {/* Title row — shown whenever any provider is configured */}
+      {providerCount > 0 && (
         <div style={{ display: "flex", alignItems: "center", marginBottom: 10, padding: "0 4px" }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}>Overview</div>
@@ -577,6 +700,15 @@ export function Dashboard({ providers, syncStatus }: Props) {
         </div>
       )}
 
+      {/* ── Plan-based providers section ─────────────────────────────────── */}
+      {/* Native unit is quota/credits, not dollars; excluded from the aggregate. */}
+      {planProviderCount > 0 && (
+        <div className="sv-feed-head">
+          <h3>Plan-based</h3>
+          <span className="count">{planProviderCount} configured</span>
+        </div>
+      )}
+
       {/* Claude Code card — always in the same tree position so it never re-mounts */}
       {claudeProvider && (
         <ClaudeCodeCard
@@ -586,16 +718,24 @@ export function Dashboard({ providers, syncStatus }: Props) {
         />
       )}
 
-      {/* Aggregate card (only when API provider data is ready) */}
-      {!loading && apiProviderCount > 0 && <AggregateCard series={aggregateSeries} period={period} />}
+      {elevenlabsProvider && (
+        <ElevenLabsCard
+          provider={elevenlabsProvider}
+          period={period}
+          syncLastTickAt={syncStatus?.last_tick_at ?? null}
+        />
+      )}
 
-      {/* API provider section heading */}
+      {/* ── API providers section ────────────────────────────────────────── */}
+      {/* Aggregate card sums only API providers (dollar-denominated). */}
       {!loading && apiProviderCount > 0 && (
         <div className="sv-feed-head">
-          <h3>Providers</h3>
+          <h3>API providers</h3>
           <span className="count">{apiProviderCount} configured</span>
         </div>
       )}
+
+      {!loading && apiProviderCount > 0 && <AggregateCard series={aggregateSeries} period={period} />}
 
       {/* Loading skeletons or populated cards */}
       {loading && apiProviderCount > 0

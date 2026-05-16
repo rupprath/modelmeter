@@ -39,6 +39,15 @@ pub struct UsageSummary {
     pub total_request_count: i64,
 }
 
+/// One day's credit total for a credit-denominated provider (e.g. ElevenLabs).
+/// `bucket_start` is unix UTC seconds at 00:00 of the day. `credits` is the
+/// sum extracted from `usage_records.provider_metadata` for that day.
+#[derive(Debug, Clone)]
+pub struct DayCredits {
+    pub bucket_start: i64,
+    pub credits: i64,
+}
+
 // ---------------------------------------------------------------------------
 // Provider CRUD
 // ---------------------------------------------------------------------------
@@ -302,6 +311,50 @@ pub fn get_latest_balance(conn: &Connection, provider_id: i64) -> Result<Option<
     } else {
         Ok(None)
     }
+}
+
+/// Returns daily credit totals for a credit-denominated provider, oldest-first.
+///
+/// Reads `provider_metadata` JSON (expecting `{"credits": N}`) for every record
+/// in `[since, until)` and sums by `bucket_start`. Rows missing or malformed
+/// metadata are skipped. Days with zero credits are not returned (callers that
+/// need a zero-filled time-series should backfill at the boundary).
+pub fn get_daily_credits(
+    conn: &Connection,
+    provider_id: i64,
+    since: i64,
+    until: i64,
+) -> Result<Vec<DayCredits>> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT bucket_start, provider_metadata
+             FROM usage_records
+             WHERE provider_id = ?1 AND bucket_start >= ?2 AND bucket_start < ?3
+               AND provider_metadata IS NOT NULL
+             ORDER BY bucket_start ASC",
+        )
+        .context("prepare get_daily_credits")?;
+
+    let rows = stmt
+        .query_map(params![provider_id, since, until], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
+        .context("query get_daily_credits")?;
+
+    let mut by_day: std::collections::BTreeMap<i64, i64> = std::collections::BTreeMap::new();
+    for r in rows {
+        let (bucket_start, meta) = r.context("read daily credits row")?;
+        let credits = serde_json::from_str::<serde_json::Value>(&meta)
+            .ok()
+            .and_then(|v| v.get("credits").and_then(|c| c.as_i64()));
+        if let Some(c) = credits {
+            *by_day.entry(bucket_start).or_insert(0) += c;
+        }
+    }
+    Ok(by_day
+        .into_iter()
+        .map(|(bucket_start, credits)| DayCredits { bucket_start, credits })
+        .collect())
 }
 
 /// Returns aggregated token and cost totals for all usage records whose

@@ -82,6 +82,25 @@ export interface MonthlySpend {
   amount_usd: number;
 }
 
+// ── ElevenLabs (credit-denominated, plan-based provider) ───────────────────
+
+export interface DayCredits {
+  bucket_start: number; // unix UTC seconds at 00:00 of the day
+  credits: number;
+}
+
+export interface ElevenLabsState {
+  tier: string;                  // "payg", "starter", "creator", ...
+  status: string;                // "active", "inactive", ...
+  character_count: number;       // credits consumed this period
+  character_limit: number;       // credits allotted this period
+  next_reset_unix: number;       // unix UTC seconds when the quota refreshes
+  current_overage_usd: number;   // dollars billed above the included quota
+  currency: string;              // "usd"
+  fetched_at: number;            // unix UTC seconds when the snapshot was taken
+  daily_credits: DayCredits[];   // oldest-first; zero days omitted
+}
+
 // ── Sync ───────────────────────────────────────────────────────────────────
 
 export type WorkerState =

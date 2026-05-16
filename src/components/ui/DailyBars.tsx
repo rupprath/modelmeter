@@ -6,6 +6,19 @@ interface HoverState {
   value: number;
 }
 
+function formatValue(value: number, unit: "currency" | "credits", currency: string): string {
+  if (unit === "credits") {
+    const n = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Math.round(value));
+    return `${n} cr`;
+  }
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 interface Props {
   data: number[];
   color?: string;
@@ -18,9 +31,16 @@ interface Props {
    * the bars are labelled as days ago — "today", "1d ago", "2d", etc.
    */
   labels?: string[];
+  /**
+   * Native unit of the values. `"currency"` formats the tooltip as a dollar
+   * amount using `currency`. `"credits"` formats as an integer with thousand
+   * separators and a "cr" suffix — for credit-denominated providers like
+   * ElevenLabs where dollar conversion is not API-confirmed.
+   */
+  unit?: "currency" | "credits";
 }
 
-export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10, currency = 'USD', labels }: Props) {
+export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10, currency = 'USD', labels, unit = "currency" }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
 
@@ -126,7 +146,7 @@ export function DailyBars({ data, color = "#1a1a1a", height = 84, padTop = 10, c
           className="sv-tooltip"
           style={{ left: hover.x, top: padTop + 2 }}
         >
-          {tooltipLabel(hover.i)} · {new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(hover.value)}
+          {tooltipLabel(hover.i)} · {formatValue(hover.value, unit, currency)}
         </div>
       )}
     </div>
